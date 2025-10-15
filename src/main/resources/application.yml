@@ -1,1 +1,18 @@
-spring.application.name=cine-mind
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cine-mind
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_USER_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
