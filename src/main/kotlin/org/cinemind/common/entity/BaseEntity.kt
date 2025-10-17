@@ -1,4 +1,4 @@
-package org.cinemind.domain.common.entity
+package org.cinemind.common.entity
 
 import jakarta.persistence.Column
 import jakarta.persistence.EntityListeners
