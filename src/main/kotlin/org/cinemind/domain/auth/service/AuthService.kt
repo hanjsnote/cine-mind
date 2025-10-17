@@ -23,6 +23,7 @@ class AuthService (
             email = signupRequest.email,
             password = signupRequest.password
         )
+
         val savedUser = userRepository.save(user)
 
         return SignupResponse(
