@@ -2,6 +2,7 @@ package org.cinemind.domain.auth.service
 
 import jakarta.transaction.InvalidTransactionException
 import jakarta.transaction.Transactional
+import org.cinemind.config.jwt.JwtUtil
 import org.cinemind.domain.auth.dto.request.SignupRequest
 import org.cinemind.domain.auth.dto.response.SignupResponse
 import org.cinemind.domain.user.entity.User
@@ -11,7 +12,8 @@ import org.springframework.stereotype.Service
 @Service
 @Transactional
 class AuthService (
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val jwtUtil: JwtUtil
 ){
     fun signup(signupRequest: SignupRequest): SignupResponse {
 
@@ -26,7 +28,10 @@ class AuthService (
 
         val savedUser = userRepository.save(user)
 
+        val bearerToken: String = jwtUtil.createToken(savedUser.id!!, savedUser.email, savedUser.userRole)
+
         return SignupResponse(
+            bearerToken = bearerToken,
             id = savedUser.id!!,
             email = savedUser.email,
             createdAt = savedUser.createdAt

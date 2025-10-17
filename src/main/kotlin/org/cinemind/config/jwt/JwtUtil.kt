@@ -6,6 +6,7 @@ import io.jsonwebtoken.SignatureAlgorithm
 import jakarta.annotation.PostConstruct
 import org.cinemind.domain.user.enums.UserRole
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
 import org.springframework.util.StringUtils
 import java.rmi.ServerException
 import java.security.Key
@@ -13,6 +14,7 @@ import java.util.Base64
 import java.util.Date
 import javax.crypto.spec.SecretKeySpec
 
+@Component
 class JwtUtil (
 
     @Value("\${jwt.secret.key}")
