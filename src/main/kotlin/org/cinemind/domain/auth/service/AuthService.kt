@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service
 class AuthService (
     private val userRepository: UserRepository
 ){
-
     fun signup(signupRequest: SignupRequest): SignupResponse {
 
         if (userRepository.existsByEmail(signupRequest.email)) {
