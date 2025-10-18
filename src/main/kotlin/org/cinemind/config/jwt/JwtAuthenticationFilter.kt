@@ -109,14 +109,14 @@ class JwtAuthenticationFilter (
         //권한 목록은 필요하다면 여기서 설정 (현재는 비어 있는 리스트)
         val authenticationToken: Authentication = JwtAuthenticationToken(authUser, emptyList())
         //SecurityContext에 인증 정보 저장 - 이후 @AuthenticationPrincipal로 접근 가능
-        SecurityContextHolder.getContext().authentication
+        SecurityContextHolder.getContext().authentication = authenticationToken
     }
 
     //에러 발생 시 JSON 응답 전송
     @Throws(IOException::class)
     private fun sendErrorResponse(httpResponse: HttpServletResponse, status: HttpStatus, message: String){
         httpResponse.status = status.value()
-        httpResponse.contentType = "applecation/json;charset=UTF-8"
+        httpResponse.contentType = "application/json;charset=UTF-8"
 
         val errorResponse = mapOf(
             "status" to status.value(),
