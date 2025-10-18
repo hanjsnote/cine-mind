@@ -10,10 +10,11 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.ServletException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.cinemind.common.dto.AuthUser
+import org.cinemind.domain.user.enums.UserRole
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
-import org.springframework.lang.NonNull
-import org.springframework.security.core.context.SecurityContext
+import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
@@ -94,7 +95,21 @@ class JwtAuthenticationFilter (
 
     //JWT Claims에서 사용자 정보를 추출하여 Spring Security의 인증 정보 설정
     private fun setAuthentication(claims: Claims){
+        //JWT의 subject에서 사용자 ID추출(subject는 JWT 표준 claim)
+        val userId = claims.subject.toLong()
+        //커스텀 claim에서 정보 추출
+        val email = claims.get("email", String::class.java)
+        //커스텀 claim에서 사용자 권한 정보를 추출하여 enum으로 변환
+        val userRole = UserRole.of(claims.get("userRole", String::class.java))
 
+        //추출한 정보로 인증된 사용자 객체 생성
+        val authUser: AuthUser = AuthUser(userId, email, userRole)
+
+        //Spring Security가 인식할 수 있는 Authentication 객체 생성
+        //권한 목록은 필요하다면 여기서 설정 (현재는 비어 있는 리스트)
+        val authenticationToken: Authentication = JwtAuthenticationToken(authUser, emptyList())
+        //SecurityContext에 인증 정보 저장 - 이후 @AuthenticationPrincipal로 접근 가능
+        SecurityContextHolder.getContext().authentication
     }
 
     @Throws(IOException::class)
