@@ -112,9 +112,17 @@ class JwtAuthenticationFilter (
         SecurityContextHolder.getContext().authentication
     }
 
+    //에러 발생 시 JSON 응답 전송
     @Throws(IOException::class)
     private fun sendErrorResponse(httpResponse: HttpServletResponse, status: HttpStatus, message: String){
+        httpResponse.status = status.value()
+        httpResponse.contentType = "applecation/json;charset=UTF-8"
 
+        val errorResponse = mapOf(
+            "status" to status.value(),
+            "code" to status.name,
+            "message" to message
+        )
+        httpResponse.writer.write(objectMapper.writeValueAsString(errorResponse))
     }
-
 }
