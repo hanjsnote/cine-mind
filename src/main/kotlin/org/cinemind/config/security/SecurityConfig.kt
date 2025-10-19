@@ -42,7 +42,7 @@ class SecurityConfig (
                 auth
                     // /auth로 시작하는 모든 요청 허용 (회원가입, 로그인 등)
                     .requestMatchers("/api/auth/**").permitAll()
-                    // 기토 공개 엔드포인트
+                    // 기타 공개 엔드포인트
                     .requestMatchers("/open", "/health").permitAll()
                     // 나머지 모든 요청은 인증 필요
                     .anyRequest().authenticated()
