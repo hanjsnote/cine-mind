@@ -27,9 +27,11 @@ class AuthService (
             throw InvalidTransactionException("이미 존재하는 이메일 입니다.")
         }
 
+        val encodedPassword = passwordEncoder.encode(signupRequest.password)
+
         val user = User(
             email = signupRequest.email,
-            password = signupRequest.password
+            password = encodedPassword
         )
 
         val savedUser = userRepository.save(user)
