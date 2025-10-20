@@ -43,7 +43,15 @@ class AuthServiceTest @Autowired constructor(
 
     @Test
     fun 이미_존재하는_이메일이면_예외_발생() {
+        // given
+        val request = SignupRequest("test2@test.com", "12345678")
+        authService.signup(request)
 
+        // when & then
+        val exception = assertThrows <InvalidTransactionException> {
+            authService.signup(request)
+        }
+        assertThat(exception.message).contains("이미 존재하는 이메일")
     }
 
     @Test
