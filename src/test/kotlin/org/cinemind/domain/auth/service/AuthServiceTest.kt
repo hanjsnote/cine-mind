@@ -1,5 +1,6 @@
 package org.cinemind.domain.auth.service
 
+import jakarta.security.auth.message.AuthException
 import jakarta.transaction.InvalidTransactionException
 import org.assertj.core.api.Assertions.assertThat
 import org.cinemind.domain.auth.dto.request.SigninRequest
@@ -66,5 +67,18 @@ class AuthServiceTest @Autowired constructor(
 
         // then
         assertThat(response.bearerToken).startsWith("Bearer ")
+    }
+
+    @Test
+    fun 잘못된_비밀번호로_로그인_예외_발생() {
+        // given
+        val signup = authService.signup(SignupRequest("test4@test.com","12345678"))
+        val request = SigninRequest("test4@test.com", "wrongpassword")
+
+        // when & then
+        val exception = assertThrows<AuthException> {
+            authService.signin(request)
+        }
+        assertThat(exception.message).contains("잘못된 비밀번호")
     }
 }
