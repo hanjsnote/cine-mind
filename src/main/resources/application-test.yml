@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  sql:
+    init:
+      mode: never
+
+jwt:
+  secret:
+    key: "VtptGZ/QLQ6zzknA91ILRzfjg9cfpuIt19jww+kXDTu/PO4fK12QU5g6dmNLKT1vdNo7PlbaE0J33GlhMq14WA=="

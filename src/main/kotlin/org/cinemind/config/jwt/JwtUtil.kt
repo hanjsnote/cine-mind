@@ -22,7 +22,7 @@ class JwtUtil (
 ){
     companion object {
         const val BEARER_PREFIX = "Bearer "
-        const val TOKEN_TIME = 60 * 1 * 1000L
+        const val TOKEN_TIME = 60 * 60 * 1000L * 24
     }
     // JWT 서명에 사용할 비밀키 객체
     private lateinit var key: Key
