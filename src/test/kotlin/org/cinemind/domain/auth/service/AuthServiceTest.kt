@@ -2,6 +2,7 @@ package org.cinemind.domain.auth.service
 
 import jakarta.transaction.InvalidTransactionException
 import org.assertj.core.api.Assertions.assertThat
+import org.cinemind.domain.auth.dto.request.SigninRequest
 import org.cinemind.domain.auth.dto.request.SignupRequest
 import org.cinemind.domain.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
@@ -56,6 +57,14 @@ class AuthServiceTest @Autowired constructor(
 
     @Test
     fun 로그인_성공() {
+        // given
+        val signup = authService.signup(SignupRequest("test3@test.com", "12345678"))
+        val request = SigninRequest("test3@test.com", "12345678")
 
+        // when
+        val response = authService.signin(request)
+
+        // then
+        assertThat(response.bearerToken).startsWith("Bearer ")
     }
 }
