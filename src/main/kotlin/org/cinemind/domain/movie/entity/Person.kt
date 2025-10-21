@@ -8,14 +8,13 @@ import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.cinemind.common.entity.BaseEntity
 
-// 제작사 정보
+// 배우, 감독 정보 / 역할에 상관없이 이름만 들어감 (중복 없음)
 @Entity
-@Table(name="companys")
-class Company (
+@Table(name="persons")
+class Person (
 
-    val companyCd: String,      // 참여 영화사 코드
-    val companyNm: String,      // 참여 영화사명(국문)
-    val companyNmEn: String?,   // 참여 영화사명(영문)
+    val nameKr: String,     // 이름(국문)
+    val nameEn: String      // 이름(영문)
 
 ) : BaseEntity() {
 
@@ -23,7 +22,7 @@ class Company (
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
 
-    @OneToMany(mappedBy = "company")
+    @OneToMany(mappedBy = "person")
     // MutableSet 순서없는 중복 방지 컬렉션
-    val movieCompany: MutableSet<MovieCompany> = mutableSetOf()
+    val moviePerson: MutableSet<MoviePerson> = mutableSetOf()
 }
