@@ -3,6 +3,8 @@ package org.cinemind.domain.auth.service
 import jakarta.security.auth.message.AuthException
 import jakarta.transaction.InvalidTransactionException
 import org.assertj.core.api.Assertions.assertThat
+import org.cinemind.common.exception.CommonErrorCode
+import org.cinemind.common.exception.GlobalException
 import org.cinemind.domain.auth.dto.request.SigninRequest
 import org.cinemind.domain.auth.dto.request.SignupRequest
 import org.cinemind.domain.user.repository.UserRepository
@@ -50,10 +52,10 @@ class AuthServiceTest @Autowired constructor(
         authService.signup(request)
 
         // when & then
-        val exception = assertThrows <InvalidTransactionException> {
+        val exception = assertThrows <GlobalException> {
             authService.signup(request)
         }
-        assertThat(exception.message).contains("이미 존재하는 이메일")
+        assertThat(exception.errorCode).isEqualTo(CommonErrorCode.DUPLICATE_EMAIL)
     }
 
     @Test
@@ -76,9 +78,9 @@ class AuthServiceTest @Autowired constructor(
         val request = SigninRequest("test4@test.com", "wrongpassword")
 
         // when & then
-        val exception = assertThrows<AuthException> {
+        val exception = assertThrows<GlobalException> {
             authService.signin(request)
         }
-        assertThat(exception.message).contains("잘못된 비밀번호")
+        assertThat(exception.errorCode).isEqualTo(CommonErrorCode.INVALID_PASSWORD)
     }
 }
