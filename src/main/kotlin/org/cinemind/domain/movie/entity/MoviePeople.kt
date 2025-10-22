@@ -9,22 +9,22 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.cinemind.common.entity.BaseEntity
-import org.cinemind.domain.movie.enums.PersonRole
+import org.cinemind.domain.movie.enums.PeopleRole
 
-// Movie, Person 매핑 테이블
+// Movie, People 매핑 테이블
 @Entity
-@Table(name="movie_persons")
-class MoviePerson (
+@Table(name="movie_peoples")
+class MoviePeople (
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "movie_id")
     val movie: Movie,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "person_id")
-    val person: Person,
+    @JoinColumn(name = "people_id")
+    val people: People,
 
-    val role: PersonRole, // 감독(DIRECTOR), 배우(ACTOR)
+    val role: PeopleRole, // 감독(DIRECTOR), 배우(ACTOR)
     val castNm: String     // 배역명
 
 ) : BaseEntity() {
