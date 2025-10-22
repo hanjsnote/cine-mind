@@ -4,6 +4,8 @@ import jakarta.persistence.Id
 import jakarta.security.auth.message.AuthException
 import jakarta.transaction.InvalidTransactionException
 import jakarta.transaction.Transactional
+import org.cinemind.common.exception.CommonErrorCode
+import org.cinemind.common.exception.GlobalException
 import org.cinemind.config.jwt.JwtUtil
 import org.cinemind.domain.auth.dto.request.SigninRequest
 import org.cinemind.domain.auth.dto.request.SignupRequest
@@ -24,7 +26,7 @@ class AuthService (
     fun signup(signupRequest: SignupRequest): SignupResponse {
 
         if (userRepository.existsByEmail(signupRequest.email)) {
-            throw InvalidTransactionException("이미 존재하는 이메일 입니다.")
+            throw GlobalException(CommonErrorCode.DUPLICATE_EMAIL)
         }
 
         val encodedPassword = passwordEncoder.encode(signupRequest.password)
@@ -48,10 +50,10 @@ class AuthService (
 
     fun signin(signinRequest: SigninRequest): SigninResponse {
         val user = userRepository.findByEmail(signinRequest.email)
-            ?: throw InvalidTransactionException("가입되지 않은 유저입니다.")
+            ?: throw GlobalException(CommonErrorCode.USER_NOT_FOUND)
 
         if (!passwordEncoder.matches(signinRequest.password, user.password)) {
-            throw AuthException("잘못된 비밀번호입니다.")
+            throw GlobalException(CommonErrorCode.INVALID_PASSWORD)
         }
 
         val bearerToken: String = jwtUtil.createToken(user.id!!, user.email, user.userRole)
