@@ -53,6 +53,8 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
           SPRING_DATASOURCE_USERNAME: sa
           SPRING_DATASOURCE_PASSWORD: ""
+          # KOFIC_API_KEY를 주입
+          KOFIC_API_KEY: ${{ secrets.KOFIC_API_KEY }}
           # JWT 키 주입 (yml 환경 변수를 덮어쓴다.)
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         run: |
