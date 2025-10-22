@@ -9,7 +9,6 @@ import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.cinemind.common.entity.BaseEntity
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 // 영화 기본 정보
 @Entity
@@ -33,7 +32,7 @@ class Movie (
 
     @OneToMany(mappedBy = "movie")
     // MutableSet 순서없는 중복 방지 컬렉션
-    val moviePerson: MutableSet<MoviePerson> = mutableSetOf()
+    val moviePeople: MutableSet<MoviePeople> = mutableSetOf()
 
     @OneToMany(mappedBy = "movie")
     // MutableSet 순서없는 중복 방지 컬렉션

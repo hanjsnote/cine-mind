@@ -1,6 +1,6 @@
 package org.cinemind.domain.movie.enums
 
-enum class PersonRole {
+enum class PeopleRole {
 
     DIRECTOR,
     ACTOR

@@ -21,6 +21,10 @@ jwt:
   secret:
     key: ${JWT_SECRET_KEY}
 
+kofic:
+  api:
+    key: ${KOFIC_API_KEY}
+
 logging:
   level:
     org.springframework.security: DEBUG

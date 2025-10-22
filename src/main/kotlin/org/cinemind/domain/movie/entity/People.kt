@@ -10,11 +10,11 @@ import org.cinemind.common.entity.BaseEntity
 
 // 배우, 감독 정보 / 역할에 상관없이 이름만 들어감 (중복 없음)
 @Entity
-@Table(name="persons")
-class Person (
+@Table(name="peoples")
+class People (
 
-    val nameKr: String,     // 이름(국문)
-    val nameEn: String      // 이름(영문)
+    val peopleNm: String,     // 이름(국문)
+    val peopleNmEn: String      // 이름(영문)
 
 ) : BaseEntity() {
 
@@ -22,7 +22,7 @@ class Person (
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
 
-    @OneToMany(mappedBy = "person")
+    @OneToMany(mappedBy = "people")
     // MutableSet 순서없는 중복 방지 컬렉션
-    val moviePerson: MutableSet<MoviePerson> = mutableSetOf()
+    val moviePeople: MutableSet<MoviePeople> = mutableSetOf()
 }
