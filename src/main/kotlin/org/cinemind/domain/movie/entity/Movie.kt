@@ -35,10 +35,12 @@ class Movie (
     val moviePeople: MutableSet<MoviePeople> = mutableSetOf()
 
     @OneToMany(mappedBy = "movie")
-    // MutableSet 순서없는 중복 방지 컬렉션
     val movieGenre: MutableSet<MovieGenre> = mutableSetOf()
 
     @OneToMany(mappedBy = "movie")
-    // MutableSet 순서없는 중복 방지 컬렉션
     val movieCompany: MutableSet<MovieCompany> = mutableSetOf()
+
+    @OneToMany(mappedBy = "movie")
+    val boxOffice: MutableSet<BoxOffice> = mutableSetOf()
+
 }

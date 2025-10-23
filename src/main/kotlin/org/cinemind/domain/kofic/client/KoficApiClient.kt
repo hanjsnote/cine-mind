@@ -1,5 +1,6 @@
 package org.cinemind.domain.kofic.client
 
+import org.cinemind.domain.kofic.dto.response.BoxOfficeInfo
 import org.cinemind.domain.kofic.dto.response.BoxOfficeResponse
 import org.cinemind.domain.kofic.dto.response.MovieInfo
 import org.cinemind.domain.kofic.dto.response.MovieInfoResponse
@@ -21,7 +22,7 @@ class KoficApiClient (
     private val webClient = webClientBuilder.baseUrl(baseUrl).build()
 
     // movieCd 목록을 가져오는 API (단일 날짜)
-    fun getMovieBoxOffice(targetDt: String): List<String> {
+    fun getMovieBoxOffice(targetDt: String): List<BoxOfficeInfo> {
         val uri = "/boxoffice/searchDailyBoxOfficeList.json"
 
         // WebClient를 이용한 호출
@@ -30,7 +31,7 @@ class KoficApiClient (
                 builder -> builder.path(uri)
                 .queryParam("key", apiKey)
                 .queryParam("targetDt", targetDt)
-                .build
+                .build()
             }
             // 요청 실행
             .retrieve()
@@ -38,10 +39,7 @@ class KoficApiClient (
             .block()
             ?.boxOfficeResult
             ?.dailyBoxOfficeList
-            ?.map { it.movieCd }    //BoxOfficeMovie DTO에서 movieCd만 추출
             ?: emptyList()  // null이거나 목록이 없으면 빈 리스트 반환
-
-
     }
 
     // 영화 상세 정보 API 단일 movieCd에 대한 상세 정보를 DTO로 가져옴
