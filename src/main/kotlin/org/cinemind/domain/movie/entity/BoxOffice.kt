@@ -24,9 +24,9 @@ class BoxOffice (
     @Column(nullable = false)
     val targetDt: String,
 
-    val rank: Int,
-    val saleAccess: Long,
-    val audiAcc: Long
+    val rank: Int,          // 순위
+    val saleAccess: Long,   // 누적 매출액
+    val audiAcc: Long       // 누적 관객수
 
 ) : BaseEntity() {
     @Id
