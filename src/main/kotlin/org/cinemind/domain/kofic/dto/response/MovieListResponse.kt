@@ -1,10 +1,17 @@
 package org.cinemind.domain.kofic.dto.response
 
-data class MovieListResponse (
+// 최상위 응답 객체
+data class MovieListResponse(
+    val movieListResult: MovieListResult
+)
+
+// 결과 컨테이너
+data class MovieListResult (
     val totCont: Int,    // 전체 결과 수
     val movieList: List<MovieListItem>
 )
 
+// 목록의 각 항목 (Movie 엔티티의 1차 정보를 담음)
 data class MovieListItem(
 
     val movieCd: String,    // 영화코드
