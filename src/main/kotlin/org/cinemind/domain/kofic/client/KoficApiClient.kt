@@ -21,7 +21,7 @@ class KoficApiClient (
     private val baseUrl = "http://www.kobis.or.kr/kobisopenapi/webservice/rest"
     private val webClient = webClientBuilder.baseUrl(baseUrl).build()
 
-    // movieCd 목록을 가져오는 API (단일 날짜)
+    // targetDt(날짜) 기준으로 일일 박스오피스 목록을 가져오는 API (단일 날짜)
     fun getMovieBoxOffice(targetDt: String): List<BoxOfficeInfo> {
         val uri = "/boxoffice/searchDailyBoxOfficeList.json"
 
@@ -35,7 +35,9 @@ class KoficApiClient (
             }
             // 요청 실행
             .retrieve()
+            // 서버로부터 받은 JSON 응답을 미리 정의된 DTO 객체로 변환
             .bodyToMono(BoxOfficeResponse::class.java)
+            // JSON 응답구조 필터링
             .block()
             ?.boxOfficeResult
             ?.dailyBoxOfficeList
