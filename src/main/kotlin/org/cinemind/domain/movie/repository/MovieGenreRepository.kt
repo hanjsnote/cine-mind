@@ -3,6 +3,6 @@ package org.cinemind.domain.movie.repository
 import org.cinemind.domain.movie.entity.Genre
 import org.springframework.data.jpa.repository.JpaRepository
 
-interface GenreRepository : JpaRepository<Genre, Long>{
-    fun findByGenreNm(genreNm: String): Genre?
+interface MovieGenreRepository : JpaRepository<Genre, Long>{
+
 }

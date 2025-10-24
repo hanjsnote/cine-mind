@@ -3,10 +3,15 @@ package org.cinemind.domain.kofic.service
 import jakarta.transaction.Transactional
 import org.cinemind.domain.kofic.client.KoficApiClient
 import org.cinemind.domain.kofic.dto.response.MovieInfo
+import org.cinemind.domain.movie.entity.Genre
 import org.cinemind.domain.movie.entity.Movie
+import org.cinemind.domain.movie.entity.MovieGenre
 import org.cinemind.domain.movie.repository.BoxOfficeRepository
 import org.cinemind.domain.movie.repository.CompanyRepository
 import org.cinemind.domain.movie.repository.GenreRepository
+import org.cinemind.domain.movie.repository.MovieCompanyRepository
+import org.cinemind.domain.movie.repository.MovieGenreRepository
+import org.cinemind.domain.movie.repository.MoviePeopleRepository
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.movie.repository.PeopleRepository
 import org.cinemind.util.DateUtils
@@ -21,6 +26,9 @@ class KoficDataSyncService (
     private val companyRepository: CompanyRepository,
     private val genreRepository: GenreRepository,
     private val peopleRepository: PeopleRepository,
+    private val movieGenreRepository: MovieGenreRepository,
+    private val moviePeopleRepository: MoviePeopleRepository,
+    private val movieCompanyRepository: MovieCompanyRepository,
     private val boxOfficeRepository: BoxOfficeRepository,
     private val dateUtils: DateUtils,
 ){
@@ -47,7 +55,6 @@ class KoficDataSyncService (
             currentPage++
         }
     }
-
 
     // targetDt를 이용해 BoxOffice 데이터 적재
     fun startLoadProcess(startDate: String, endDate: String) {
@@ -81,7 +88,7 @@ class KoficDataSyncService (
         val savedMovie = saveMovie(movieInfo)
 
         // 매핑 엔티티 저장 (장르, 인물, 회사)
-//        saveAllMappringEntites(savedMovie, movieInfo)
+        saveAllMappringEntites(savedMovie, movieInfo)
 
         return savedMovie
     }
@@ -98,6 +105,16 @@ class KoficDataSyncService (
             watchGradeNm = movieInfo.audits.firstOrNull()?.watchGradeNm ?: "전체 관람가"
         ))
     }
+    // 매핑 엔티티 저장 로직: 장르, 인물, 회사 매핑 처리
+    private fun saveAllMappringEntites(movie: Movie, movieInfo: MovieInfo) {
+        // 장르 처리 DTO 목록 -> DB에서 찾거나 생성 -> 매핑 테이블 저장
+        movieInfo.genres.forEach { genreDto ->
+            val genre = genreRepository.findByGenreNm(genreDto.genreNm)
+                ?: genreRepository.save(Genre(genreDto.genreNm))
+//            movieGenreRepository.save(MovieGenre(movie = movie, genre = genre))
+        }
 
+        // 인물 처리: 감독 및 배우 DTO 목록 -> DB에서 찾거나 생성 -> 매핑 테이블 저장
+    }
 
 }
