@@ -3,9 +3,14 @@ package org.cinemind.domain.kofic.service
 import jakarta.transaction.Transactional
 import org.cinemind.domain.kofic.client.KoficApiClient
 import org.cinemind.domain.kofic.dto.response.MovieInfo
+import org.cinemind.domain.movie.entity.Company
 import org.cinemind.domain.movie.entity.Genre
 import org.cinemind.domain.movie.entity.Movie
+import org.cinemind.domain.movie.entity.MovieCompany
 import org.cinemind.domain.movie.entity.MovieGenre
+import org.cinemind.domain.movie.entity.MoviePeople
+import org.cinemind.domain.movie.entity.People
+import org.cinemind.domain.movie.enums.PeopleRole
 import org.cinemind.domain.movie.repository.BoxOfficeRepository
 import org.cinemind.domain.movie.repository.CompanyRepository
 import org.cinemind.domain.movie.repository.GenreRepository
@@ -88,7 +93,7 @@ class KoficDataSyncService (
         val savedMovie = saveMovie(movieInfo)
 
         // 매핑 엔티티 저장 (장르, 인물, 회사)
-        saveAllMappringEntites(savedMovie, movieInfo)
+        saveAllMappingEntites(savedMovie, movieInfo)
 
         return savedMovie
     }
@@ -105,16 +110,38 @@ class KoficDataSyncService (
             watchGradeNm = movieInfo.audits.firstOrNull()?.watchGradeNm ?: "전체 관람가"
         ))
     }
+
     // 매핑 엔티티 저장 로직: 장르, 인물, 회사 매핑 처리
-    private fun saveAllMappringEntites(movie: Movie, movieInfo: MovieInfo) {
-        // 장르 처리 DTO 목록 -> DB에서 찾거나 생성 -> 매핑 테이블 저장
+    private fun saveAllMappingEntites(movie: Movie, movieInfo: MovieInfo) {
+        // 장르 처리 DTO 목록 -> DB에서 찾아서 비어있다면 저장 -> 매핑 테이블 저장
         movieInfo.genres.forEach { genreDto ->
             val genre = genreRepository.findByGenreNm(genreDto.genreNm)
                 ?: genreRepository.save(Genre(genreDto.genreNm))
-//            movieGenreRepository.save(MovieGenre(movie = movie, genre = genre))
+            movieGenreRepository.save(MovieGenre(movie = movie, genre = genre))
+        }
+        // 감독 목록 순회 및 저장
+        movieInfo.directors.forEach { directorDto ->
+            val people = peopleRepository.findByPeopleNm(directorDto.peopleNm)
+                ?: peopleRepository.save(People(directorDto.peopleNm, directorDto.peopleNmEn ?: ""))
+            moviePeopleRepository.save(MoviePeople(movie = movie, people = people, role = PeopleRole.DIRECTOR, castNm = ""))
         }
 
-        // 인물 처리: 감독 및 배우 DTO 목록 -> DB에서 찾거나 생성 -> 매핑 테이블 저장
+        // 배우 목록 순회 및 저장
+        movieInfo.actors.forEach { actorDto  ->
+            val people = peopleRepository.findByPeopleNm(actorDto.peopleNm)
+                ?: peopleRepository.save(People(actorDto.peopleNm, actorDto.peopleNmEn ?: ""))
+            moviePeopleRepository.save(MoviePeople(movie = movie, people = people, role = PeopleRole.ACTOR, castNm = actorDto.castNm))
+        }
+
+        // 회사 목록 순회 및 저장
+        movieInfo.companys.forEach { companyDto ->
+            val company = companyRepository.findByCompanyCd(companyDto.companyCd)
+                ?: companyRepository.save(Company(companyDto.companyCd, companyDto.companyNm, companyDto.companyNmEm ?: "" ))
+            movieCompanyRepository.save(MovieCompany(movie = movie, company = company, companyPartNm = companyDto.companyPartNm))
+        }
+
+
+
     }
 
 }

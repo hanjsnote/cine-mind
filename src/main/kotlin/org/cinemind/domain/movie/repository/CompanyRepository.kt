@@ -4,4 +4,5 @@ import org.cinemind.domain.movie.entity.Company
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface CompanyRepository : JpaRepository<Company, Long>{
+    fun findByCompanyCd(companyDto: String): Company?
 }
