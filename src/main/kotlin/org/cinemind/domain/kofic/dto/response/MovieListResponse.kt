@@ -7,7 +7,7 @@ data class MovieListResponse(
 
 // 결과 컨테이너
 data class MovieListResult (
-    val totCont: Int,    // 전체 결과 수
+    val totCnt: Int,    // 전체 결과 수
     val movieList: List<MovieListItem>
 )
 
