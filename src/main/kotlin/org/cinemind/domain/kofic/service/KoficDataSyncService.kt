@@ -3,10 +3,20 @@ package org.cinemind.domain.kofic.service
 import jakarta.transaction.Transactional
 import org.cinemind.domain.kofic.client.KoficApiClient
 import org.cinemind.domain.kofic.dto.response.MovieInfo
+import org.cinemind.domain.movie.entity.Company
+import org.cinemind.domain.movie.entity.Genre
 import org.cinemind.domain.movie.entity.Movie
+import org.cinemind.domain.movie.entity.MovieCompany
+import org.cinemind.domain.movie.entity.MovieGenre
+import org.cinemind.domain.movie.entity.MoviePeople
+import org.cinemind.domain.movie.entity.People
+import org.cinemind.domain.movie.enums.PeopleRole
 import org.cinemind.domain.movie.repository.BoxOfficeRepository
 import org.cinemind.domain.movie.repository.CompanyRepository
 import org.cinemind.domain.movie.repository.GenreRepository
+import org.cinemind.domain.movie.repository.MovieCompanyRepository
+import org.cinemind.domain.movie.repository.MovieGenreRepository
+import org.cinemind.domain.movie.repository.MoviePeopleRepository
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.movie.repository.PeopleRepository
 import org.cinemind.util.DateUtils
@@ -21,6 +31,9 @@ class KoficDataSyncService (
     private val companyRepository: CompanyRepository,
     private val genreRepository: GenreRepository,
     private val peopleRepository: PeopleRepository,
+    private val movieGenreRepository: MovieGenreRepository,
+    private val moviePeopleRepository: MoviePeopleRepository,
+    private val movieCompanyRepository: MovieCompanyRepository,
     private val boxOfficeRepository: BoxOfficeRepository,
     private val dateUtils: DateUtils,
 ){
@@ -47,7 +60,6 @@ class KoficDataSyncService (
             currentPage++
         }
     }
-
 
     // targetDt를 이용해 BoxOffice 데이터 적재
     fun startLoadProcess(startDate: String, endDate: String) {
@@ -81,7 +93,7 @@ class KoficDataSyncService (
         val savedMovie = saveMovie(movieInfo)
 
         // 매핑 엔티티 저장 (장르, 인물, 회사)
-//        saveAllMappringEntites(savedMovie, movieInfo)
+        saveAllMappingEntites(savedMovie, movieInfo)
 
         return savedMovie
     }
@@ -99,5 +111,37 @@ class KoficDataSyncService (
         ))
     }
 
+    // 매핑 엔티티 저장 로직: 장르, 인물, 회사 매핑 처리
+    private fun saveAllMappingEntites(movie: Movie, movieInfo: MovieInfo) {
+        // 장르 처리 DTO 목록 -> DB에서 찾아서 비어있다면 저장 -> 매핑 테이블 저장
+        movieInfo.genres.forEach { genreDto ->
+            val genre = genreRepository.findByGenreNm(genreDto.genreNm)
+                ?: genreRepository.save(Genre(genreDto.genreNm))
+            movieGenreRepository.save(MovieGenre(movie = movie, genre = genre))
+        }
+        // 감독 목록 순회 및 저장
+        movieInfo.directors.forEach { directorDto ->
+            val people = peopleRepository.findByPeopleNm(directorDto.peopleNm)
+                ?: peopleRepository.save(People(directorDto.peopleNm, directorDto.peopleNmEn ?: ""))
+            moviePeopleRepository.save(MoviePeople(movie = movie, people = people, role = PeopleRole.DIRECTOR, castNm = ""))
+        }
+
+        // 배우 목록 순회 및 저장
+        movieInfo.actors.forEach { actorDto  ->
+            val people = peopleRepository.findByPeopleNm(actorDto.peopleNm)
+                ?: peopleRepository.save(People(actorDto.peopleNm, actorDto.peopleNmEn ?: ""))
+            moviePeopleRepository.save(MoviePeople(movie = movie, people = people, role = PeopleRole.ACTOR, castNm = actorDto.castNm))
+        }
+
+        // 회사 목록 순회 및 저장
+        movieInfo.companys.forEach { companyDto ->
+            val company = companyRepository.findByCompanyCd(companyDto.companyCd)
+                ?: companyRepository.save(Company(companyDto.companyCd, companyDto.companyNm, companyDto.companyNmEm ?: "" ))
+            movieCompanyRepository.save(MovieCompany(movie = movie, company = company, companyPartNm = companyDto.companyPartNm))
+        }
+
+
+
+    }
 
 }

@@ -1,8 +1,8 @@
 package org.cinemind.domain.movie.repository
 
 import org.cinemind.domain.movie.entity.Company
+import org.cinemind.domain.movie.entity.MovieCompany
 import org.springframework.data.jpa.repository.JpaRepository
 
-interface CompanyRepository : JpaRepository<Company, Long>{
-    fun findByCompanyCd(companyDto: String): Company?
+interface MovieCompanyRepository : JpaRepository<MovieCompany, Long>{
 }
