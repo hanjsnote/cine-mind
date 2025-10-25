@@ -16,6 +16,8 @@ spring:
 
 jwt:
   secret:
-    key: ${JWT_SECRET_DUMMY_KEY}
+    key: ${JWT_SECRET_KEY}
 
-KOFIC_API_KEY: ${KOFIC_API_DUMMY_KEY}
+kofic:
+  api:
+    key: ${KOFIC_API_KEY}

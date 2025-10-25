@@ -1,6 +1,8 @@
 package org.cinemind.domain.movie.entity
 
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -24,6 +26,7 @@ class MoviePeople (
     @JoinColumn(name = "people_id")
     val people: People,
 
+    @Enumerated(EnumType.STRING)
     val role: PeopleRole, // 감독(DIRECTOR), 배우(ACTOR)
     val castNm: String     // 배역명
 
