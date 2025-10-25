@@ -112,8 +112,6 @@ class KoficDataSyncService (
     // Movie 엔티티 저장 로직 MovieInfoResponse를 Movie 엔티티로 변환 후 저장
     private fun saveMovie(movieInfo: MovieInfo): Movie {
 
-//        val openDate = movieInfo.openDt.toLocalDate() ?: LocalDate.of(1990, 1, 1)
-
         return movieRepository.save(Movie(
             movieCd = movieInfo.movieCd,
             movieNm = movieInfo.movieNm,

@@ -19,7 +19,7 @@ class Movie (
     val movieNm: String,        // 영화명(국문)
     val movieNmEn: String,      // 영화명(영문)
     val showTm: Int,            // 상영시간
-    val openDt: String,  // 개봉일
+    val openDt: String,         // 개봉일
     val typeNm: String,         // 영화유형
     val watchGradeNm: String    // 관람등급
 
@@ -41,5 +41,4 @@ class Movie (
 
     @OneToMany(mappedBy = "movie")
     val boxOffice: MutableSet<BoxOffice> = mutableSetOf()
-
 }
