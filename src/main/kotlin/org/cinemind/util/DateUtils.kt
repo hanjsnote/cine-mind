@@ -4,8 +4,11 @@ import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-
-fun String.toLocalDate() : LocalDate {
+fun String?.toLocalDate() : LocalDate? {
+    // null 또는 빈 문자열인 경우 null 반환
+    if (this.isNullOrEmpty()) {
+        return null
+    }
     // KOFIC 날짜 형식
     val fomatter = DateTimeFormatter.ofPattern("yyyyMMdd")
     return LocalDate.parse(this, fomatter)
