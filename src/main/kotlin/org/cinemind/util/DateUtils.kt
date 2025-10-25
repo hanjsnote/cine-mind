@@ -4,15 +4,15 @@ import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-fun String?.toLocalDate() : LocalDate? {
-    // null 또는 빈 문자열인 경우 null 반환
-    if (this.isNullOrEmpty()) {
-        return null
-    }
-    // KOFIC 날짜 형식
-    val fomatter = DateTimeFormatter.ofPattern("yyyyMMdd")
-    return LocalDate.parse(this, fomatter)
-}
+//fun String?.toLocalDate() : LocalDate? {
+//    // null 또는 빈 문자열인 경우 null 반환
+//    if (this.isNullOrEmpty()) {
+//        return null
+//    }
+//    // KOFIC 날짜 형식
+//    val fomatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+//    return LocalDate.parse(this, fomatter)
+//}
 // 두 날짜 사이의 모든 날짜를 포맷하여 리스트로 반환
 @Component
 class DateUtils {

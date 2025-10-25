@@ -8,7 +8,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.cinemind.common.entity.BaseEntity
-import java.time.LocalDate
 
 // 영화 기본 정보
 @Entity
@@ -20,7 +19,7 @@ class Movie (
     val movieNm: String,        // 영화명(국문)
     val movieNmEn: String,      // 영화명(영문)
     val showTm: Int,            // 상영시간
-    val openDt: LocalDate,  // 개봉일
+    val openDt: String,  // 개봉일
     val typeNm: String,         // 영화유형
     val watchGradeNm: String    // 관람등급
 
