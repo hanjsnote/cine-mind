@@ -20,9 +20,7 @@ import org.cinemind.domain.movie.repository.MoviePeopleRepository
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.movie.repository.PeopleRepository
 import org.cinemind.util.DateUtils
-import org.cinemind.util.toLocalDate
 import org.springframework.stereotype.Service
-import java.time.LocalDate
 
 @Service
 @Transactional
@@ -114,14 +112,14 @@ class KoficDataSyncService (
     // Movie 엔티티 저장 로직 MovieInfoResponse를 Movie 엔티티로 변환 후 저장
     private fun saveMovie(movieInfo: MovieInfo): Movie {
 
-        val openDate = movieInfo.openDt.toLocalDate() ?: LocalDate.of(1990, 1, 1)
+//        val openDate = movieInfo.openDt.toLocalDate() ?: LocalDate.of(1990, 1, 1)
 
         return movieRepository.save(Movie(
             movieCd = movieInfo.movieCd,
             movieNm = movieInfo.movieNm,
             movieNmEn = movieInfo.movieNmEn,
             showTm = movieInfo.showTm.toIntOrNull() ?: 0,
-            openDt = openDate,
+            openDt = movieInfo.openDt,
             typeNm = movieInfo.typeNm,
             watchGradeNm = movieInfo.audits.firstOrNull()?.watchGradeNm ?: "전체 관람가"
         ))
