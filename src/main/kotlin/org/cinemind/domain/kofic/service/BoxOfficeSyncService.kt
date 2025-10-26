@@ -6,7 +6,6 @@ import org.cinemind.domain.kofic.dto.response.BoxOfficeInfo
 import org.cinemind.domain.movie.entity.BoxOffice
 import org.cinemind.domain.movie.entity.Movie
 import org.cinemind.domain.movie.repository.BoxOfficeRepository
-import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.util.DateUtils
 import org.springframework.stereotype.Service
 
