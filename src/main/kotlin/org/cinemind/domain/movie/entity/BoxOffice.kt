@@ -1,6 +1,5 @@
 package org.cinemind.domain.movie.entity
 
-import jakarta.persistence.Access
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -24,9 +23,9 @@ class BoxOffice (
     @Column(nullable = false)
     val targetDt: String,
 
-    val rank: Int,          // 순위
-    val saleAccess: Long,   // 누적 매출액
-    val audiAcc: Long       // 누적 관객수
+    val rank: String,          // 순위
+    val saleAccess: String,   // 누적 매출액
+    val audiAcc: String       // 누적 관객수
 
 ) : BaseEntity() {
     @Id
