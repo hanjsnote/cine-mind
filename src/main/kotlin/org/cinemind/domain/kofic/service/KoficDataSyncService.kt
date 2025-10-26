@@ -1,5 +1,6 @@
 package org.cinemind.domain.kofic.service
 
+import com.fasterxml.jackson.annotation.JsonGetter
 import jakarta.transaction.Transactional
 import org.cinemind.domain.kofic.client.KoficApiClient
 import org.cinemind.domain.kofic.dto.response.MovieInfo
@@ -33,8 +34,6 @@ class KoficDataSyncService (
     private val movieGenreRepository: MovieGenreRepository,
     private val moviePeopleRepository: MoviePeopleRepository,
     private val movieCompanyRepository: MovieCompanyRepository,
-    private val boxOfficeRepository: BoxOfficeRepository,
-    private val dateUtils: DateUtils,
 ){
     // 전체 영화 목록을 조회
     fun saveMovieList() {
@@ -42,7 +41,7 @@ class KoficDataSyncService (
         var currentPage = 1     // 시작할 현재 페이지 번호
         var totalPages = 1
 
-        // 테스트로 100건만 저장
+        // 테스트로 10건만 저장
         val result = koficApiClient.getMovieList(currentPage, itemPerPage)
 
         if (result == null) {
@@ -72,20 +71,6 @@ class KoficDataSyncService (
 //        }
     }
 
-//    // targetDt를 이용해 BoxOffice 데이터 적재
-//    fun startLoadProcess(startDate: String, endDate: String) {
-//
-//        // 날짜 범위 생성 및 반복 호출
-//        val datesToLoad = dateUtils.generateDate(startDate, endDate)
-//
-//        datesToLoad.forEach { targetDt ->
-//            // 단일 날짜의 BoxOffice 목록을 가져옴
-//            val dailyBoxOfficeList = koficApiClient.getMovieBoxOffice(targetDt)
-//            // 날짜 정보(targetDt)와 BoxOffice를 결합하여 처리
-////            saveBoxOffice(targetDt, dailyBoxOfficeList)
-//        }
-//    }
-
     // 영화 코드를 기준으로 DB에서 Movie 엔티티를 찾거나 없으면 Movie와 모든 매핑 엔티티를 저장
     private fun saveMovieData(movieCd: String): Movie? {
         // DB 존재 여부 확인: 이미 DB에 있는 영화라면 상세 조회 API 호출 없이 바로 반환
@@ -109,7 +94,7 @@ class KoficDataSyncService (
         return savedMovie
     }
 
-    // Movie 엔티티 저장 로직 MovieInfoResponse를 Movie 엔티티로 변환 후 저장
+    // Movie 엔티티 저장 로직
     private fun saveMovie(movieInfo: MovieInfo): Movie {
 
         return movieRepository.save(Movie(
@@ -122,6 +107,18 @@ class KoficDataSyncService (
             watchGradeNm = movieInfo.audits.firstOrNull()?.watchGradeNm ?: "전체 관람가"
         ))
     }
+
+    // BoxOfficeSyncService에서 movieCd가 존재하는지 확인
+    fun saveOrFindMovieData(movieCd: String): Movie? {
+        movieRepository.findByMovieCd(movieCd)?.let {
+            return it
+        }
+        // 없으면 상세 API 호출 후 Movie 저장
+        val movieInfo = koficApiClient.getMovieDetailList(movieCd) ?: return null
+        // 저장 및 반환
+        return saveMovie(movieInfo)
+    }
+
 
     // 매핑 엔티티 저장 로직: 장르, 인물, 회사 매핑 처리
     private fun saveAllMappingEntites(movie: Movie, movieInfo: MovieInfo) {
