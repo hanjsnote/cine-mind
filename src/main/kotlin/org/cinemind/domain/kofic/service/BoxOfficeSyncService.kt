@@ -19,7 +19,7 @@ class BoxOfficeSyncService (
 ){
 
     //    // targetDt를 이용해 BoxOffice 데이터 적재
-    fun startLoadProcess(startDate: String, endDate: String) {
+    fun startLoadBoxOffice(startDate: String, endDate: String) {
 
         // 날짜 범위 생성 및 반복 호출
         val datesToLoad = dateUtils.generateDate(startDate, endDate)
