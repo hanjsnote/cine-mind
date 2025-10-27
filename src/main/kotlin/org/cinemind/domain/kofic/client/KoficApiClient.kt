@@ -15,7 +15,7 @@ import org.springframework.web.reactive.function.client.bodyToMono
 // API 키와 URL을 사용하여 외부 호출을 담당
 @Component
 class KoficApiClient (
-    @Value("\${KOFIC_API_KEY}")
+    @Value("\${kofic.api.key}")
     private val apiKey: String,
     // WebClient를 사용하기 위해 WebClient.Builder를 주입
     private val webClientBuilder: WebClient.Builder

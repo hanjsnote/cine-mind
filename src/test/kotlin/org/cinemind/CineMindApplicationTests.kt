@@ -6,10 +6,12 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 import javax.sql.DataSource
 
 @SpringBootTest
+@ActiveProfiles("test")
 @TestPropertySource(properties = [
     // 💡 PostgreSQL 설정을 H2 설정으로 강제 오버라이드
     "spring.datasource.driver-class-name=org.h2.Driver",
@@ -18,7 +20,8 @@ import javax.sql.DataSource
     "spring.datasource.password=",
 
     // 💡 JWT 설정도 함께 오버라이드 (이전 @ActiveProfiles("test")의 역할)
-    "jwt.secret.key=VtptGZ/QLQ6zzknA91ILRzfjg9cfpuIt19jww+kXDTu/PO4fK12QU5g6dmNLKT1vdNo7PlbaE0J33GlhMq14WA=="
+    "jwt.secret.key=abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd",
+    "kofic.api.key=test-kofic-api-key-test-kofic-api-key-test-kofic-api-key"
 ])
 
 //@SpringBootTest
