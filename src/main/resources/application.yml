@@ -25,6 +25,10 @@ kofic:
   api:
     key: ${KOFIC_API_KEY}
 
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+
 logging:
   level:
     org.springframework.security: DEBUG
