@@ -26,8 +26,8 @@ class ChatService (
         4. 답변 형식은 항상 한국어로 작성해야 합니다.
     """.trimIndent()
 
-//    RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
-//    userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
+    // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
+    // userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
     fun getLLMResponse(userQuery: String): Mono<String> {
         // (RAG 1단계 - 검색) 사용자 질문에서 검색 키워드를 추출하고 DB에서 관련 정보 찾기
         val contextMovies = getContextFromMovieDB(userQuery)
@@ -39,18 +39,49 @@ class ChatService (
         return openAiClient.getChatCompletion(SYSTEM_INSTRUCTION, fullPrompt)
     }
 
-    // 임시 RAG 로직 나중에 벡터 검색으로 대체
+    // 임시 RAG 로직
     // 사용자 질문에 가장 관련 있는 영화 정보를 DB(MovieRepository)에서 찾는다.
+    // 주의: 현재는 사용자 질문의 '첫 번째 단어'만 키워드로 사용해서 검색
+    // 예) "영화 광해에 대해 성명해줘" -> "영화"로 검색 (부정확)
+    // 예) "광해 정보는 뭐야?" -> "광해"로 검색(정확)
+    // 이 로직은 나중에 벡터 검색으로 대체
     private fun getContextFromMovieDB(userQuery: String): List<Movie> {
+        // 질문의 첫 번째 단어를 임시 키워드로 사용
+        val keyword = userQuery.trim().split(" ").firstOrNull() ?: ""
 
-        return TODO("반환 값을 제공하세요")
+        if (keyword.isBlank()) {
+            return emptyList()
+        }
+
+        // movieNm 필드에서 키워드를 포함하는 영화를 검색 최대 3개까지만 Context로 사용
+        return movieRepository.findByMovieNmContainingIgnoreCase(keyword).take(3)
     }
 
     // LLM에게 전달할 최종 프롬프트를 생성
     // 시스템 지시문 + [CONTEXT] + 사용자 질문의 구조를 가짐
     private fun createFullPrompt(userQuery: String, contextMovies: List<Movie>): String{
-
-        return TODO("반환 값을 제공하세요")
+        // ContextMovies가 없으면 빈 문자열을, 있으면 형식화된 영화 정보를 포함
+        val contextString = if (contextMovies.isEmpty()) {
+            "제공할 Context 정보가 없습니다."
+        } else {
+            contextMovies.joinToString (separator = "\n---\n"){ movie ->
+                """
+                영화명(국문): ${movie.movieNm}
+                영화명(영문): ${movie.movieNmEn}
+                상영시간: ${movie.showTm}분
+                개봉일: ${movie.openDt}
+                영화유형: ${movie.typeNm}
+                관람등급: ${movie.watchGradeNm}
+                ""${'"'}
+                """
+            }
+        }
+        return """
+        [CONTEXT]
+         $contextString
+        
+        [사용자 질문]
+        $userQuery
+        """.trimIndent()
     }
-
 }
