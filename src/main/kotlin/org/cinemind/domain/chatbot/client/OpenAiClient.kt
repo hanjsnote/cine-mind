@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono
 @Component
 class OpenAiClient(
     private val webClient: WebClient,
-    @Value("\${openal.api.key")
+    @Value("\${openai.api.key}")
     private val openAIApiKey: String
 ) {
     // LLM 모델 정보 정의
