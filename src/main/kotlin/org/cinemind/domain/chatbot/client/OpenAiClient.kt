@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
-
+/**
+ * 외부 API 통신을 위한 WebClient 설정 파일.
+ */
 @Component
 class OpenAiClient(
     private val webClient: WebClient,

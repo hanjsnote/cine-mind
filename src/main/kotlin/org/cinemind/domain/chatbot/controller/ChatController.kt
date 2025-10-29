@@ -6,6 +6,10 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Mono
 
+/**
+ * 챗봇 API의 진입점(Controller) 역할을 수행.
+ * 사용자 요청을 받아 서비스 계층으로 전달하고, 응답을 반환.
+ */
 @RestController
 @RequestMapping("/api/chat")
 class ChatController (
