@@ -1,7 +1,12 @@
 package org.cinemind.domain.chatbot.enum
 
-enum class MessageRole {
-    SYSTEM,
-    USER,
-    ASSISTANT
+import com.fasterxml.jackson.annotation.JsonValue
+
+enum class MessageRole (
+    @JsonValue
+    val roleValue: String
+){
+    SYSTEM("system"),
+    USER("user"),
+    ASSISTANT("assistant")
 }
