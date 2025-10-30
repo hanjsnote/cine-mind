@@ -22,3 +22,7 @@ kofic:
   api:
     key: "test-kofic-api-key-test-kofic-api-key-test-kofic-api-key"
 
+openai:
+  api:
+    key: "test-openai-api-key-test-openai-api-key-test-openai-api-key"
+
