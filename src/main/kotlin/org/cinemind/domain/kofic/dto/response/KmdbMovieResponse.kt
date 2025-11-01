@@ -1,7 +1,7 @@
 package org.cinemind.domain.kofic.dto.response
 
 // KMDb API 최상위 응답 객체
-data class KmdbmovieResponse(
+data class KmdbMovieResponse(
     val Data: List<KmdbDataContainer>
 )
 
