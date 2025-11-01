@@ -21,7 +21,10 @@ class Movie (
     val showTm: Int,            // 상영시간
     val openDt: String,         // 개봉일
     val typeNm: String,         // 영화유형
-    val watchGradeNm: String    // 관람등급
+    val watchGradeNm: String,    // 관람등급
+
+    @Column(name = "plot", columnDefinition = "text")
+    val plot: String? = null    // 줄거리
 
 ) : BaseEntity() {
 

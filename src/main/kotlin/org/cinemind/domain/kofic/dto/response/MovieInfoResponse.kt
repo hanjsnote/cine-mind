@@ -21,7 +21,7 @@ data class MovieInfo(
     val openDt: String,         // 개봉일
     val typeNm: String,         // 영화유형
 
-    // 여러 구조를 가지는 목록 필드
+    // List 형태 목록 필드
     val genres: List<GenreKofic>,
     val directors: List<DirectorKofic>,
     val actors: List<ActorKofic>,
