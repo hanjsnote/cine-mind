@@ -13,10 +13,10 @@ data class KmdbDataContainer(
 // KMDb API 영화 상세 정보
 data class KmdbResult(
     // KMDb 영화 상세 정보
-    val movieId: String,
-    val title: String,
-    val titleEng: String?,
-    val releaseDate: String?,
+    val movieId: String,    // movie_id
+    val title: String,      // 영화명
+    val titleEng: String?,  // 영화명(영문)
+    val releaseDts: String?,    // 개봉일
 
     // List 형태 목록 필드
     val plots: PlotKMDb,
