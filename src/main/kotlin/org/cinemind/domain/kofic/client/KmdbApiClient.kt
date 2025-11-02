@@ -9,7 +9,7 @@ import kotlin.text.get
 // KMDb API와 통신을 담당하는 클라이언트
 @Component
 class KmdbApiClient (
-    @Value("\${KMDB_API_KEY}")
+    @Value("\${KMDB_API_KEY:test-default-kmdb-key}")
     private val serviceKey: String,
     private val webClientBuilder: WebClient.Builder
 ){
