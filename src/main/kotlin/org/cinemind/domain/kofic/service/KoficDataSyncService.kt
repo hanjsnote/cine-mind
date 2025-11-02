@@ -2,8 +2,11 @@ package org.cinemind.domain.kofic.service
 
 import com.fasterxml.jackson.annotation.JsonGetter
 import jakarta.transaction.Transactional
+import org.cinemind.domain.kofic.client.KmdbApiClient
 import org.cinemind.domain.kofic.client.KoficApiClient
+import org.cinemind.domain.kofic.dto.response.KmdbDataContainer
 import org.cinemind.domain.kofic.dto.response.MovieInfo
+import org.cinemind.domain.kofic.dto.response.PlotInfo
 import org.cinemind.domain.movie.entity.Company
 import org.cinemind.domain.movie.entity.Genre
 import org.cinemind.domain.movie.entity.Movie
@@ -27,6 +30,7 @@ import org.springframework.stereotype.Service
 @Transactional
 class KoficDataSyncService (
     private val koficApiClient: KoficApiClient,
+    private val kmdbApiClient: KmdbApiClient,
     private val movieRepository: MovieRepository,
     private val companyRepository: CompanyRepository,
     private val genreRepository: GenreRepository,
@@ -71,7 +75,7 @@ class KoficDataSyncService (
 //        }
     }
 
-    // BoxOfficeSyncService와 saveMovieList에서 모두 사용하는 통합 메서드
+    // BoxOfficeSyncService와 saveMovieList, getKmdbMovieDetail에서 모두 사용하는 통합 메서드
     fun saveOrFindMovieData(movieCd: String): Movie? {
         // DB 존재 여부 확인: 이미 DB에 있는 영화라면 상세 조회 API 호출 없이 바로 반환
         movieRepository.findByMovieCd(movieCd)?.let {
@@ -84,8 +88,20 @@ class KoficDataSyncService (
             return null
         }
 
+        // KMDb 줄거리 조회 API 호출 (줄거리 확보)
+        // KOFIC의 제목(movieNm)과 개봉일(openDt)을 KMDb 검색 파라미터로 사용
+        val kmdbInfo = kmdbApiClient.getKmdbMovieDetail(movieInfo.movieNm, movieInfo.openDt)
+
+        // 줄거리 추출: KmMovieResponse 구조에 맞춰서 추출
+        val plotText = kmdbInfo?.Data?.firstOrNull()
+            ?.Result?.firstOrNull()
+            ?.plots
+            ?.plot?.firstOrNull()
+            ?.plotText
+            ?.replace("!", "") ?: "줄거리 정보 없음"
+
         // Movie 엔티티 저장 (목록 API 정보 + 상세 API 정보)
-        val savedMovie = saveMovie(movieInfo)
+        val savedMovie = saveMovie(movieInfo, plotText)
 
         // 매핑 엔티티 저장 (Genre, People, Company)
         saveAllMappingEntites(savedMovie, movieInfo)
@@ -95,7 +111,7 @@ class KoficDataSyncService (
 
 
     // Movie 엔티티 저장 로직
-    private fun saveMovie(movieInfo: MovieInfo): Movie {
+    private fun saveMovie(movieInfo: MovieInfo, plot: String): Movie {
 
         return movieRepository.save(
             Movie(
@@ -105,7 +121,8 @@ class KoficDataSyncService (
                 showTm = movieInfo.showTm.toIntOrNull() ?: 0,
                 openDt = movieInfo.openDt,
                 typeNm = movieInfo.typeNm,
-                watchGradeNm = movieInfo.audits.firstOrNull()?.watchGradeNm ?: "전체 관람가"
+                watchGradeNm = movieInfo.audits.firstOrNull()?.watchGradeNm ?: "전체 관람가",
+                plot = plot
             )
         )
     }

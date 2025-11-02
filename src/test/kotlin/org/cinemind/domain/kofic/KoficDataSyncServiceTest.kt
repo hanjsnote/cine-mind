@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.verify
 import jakarta.transaction.Transactional
 import org.assertj.core.api.Assertions.assertThat
+import org.cinemind.domain.kofic.client.KmdbApiClient
 import org.cinemind.domain.kofic.client.KoficApiClient
 import org.cinemind.domain.kofic.dto.response.ActorKofic
 import org.cinemind.domain.kofic.dto.response.AuditKofic
@@ -36,6 +37,9 @@ class KoficDataSyncServiceTest {
     @MockkBean
     private lateinit var koficApiClient: KoficApiClient
 
+    @MockkBean
+    private lateinit var kmdbApiClient: KmdbApiClient
+
     @Autowired
     private lateinit var koficService: KoficDataSyncService
 
@@ -50,6 +54,10 @@ class KoficDataSyncServiceTest {
 
         // 실제 api 호출 대신 미리 정의된 mockMovieInfo 반환 // MockK은 every, Mockito에선 given
         every { koficApiClient.getMovieDetailList(movieCd) } returns mockMovieInfo
+
+        // 임시로 테스트 성공을 위해 null 반환
+        every { kmdbApiClient.getKmdbMovieDetail(any(), any()) } returns null
+
 
         // when
         // 신규 영화 코드를 전달하여 저장 로직 실행
