@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
 
-// API 키와 URL을 사용하여 외부 호출을 담당
+// API 키와 URL을 사용하여 KOFIC API와 통신을 담당하는 클라이언트
 @Component
 class KoficApiClient (
     @Value("\${kofic.api.key}")

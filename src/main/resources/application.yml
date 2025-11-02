@@ -25,6 +25,10 @@ kofic:
   api:
     key: ${KOFIC_API_KEY}
 
+kmdb:
+  api:
+    key: ${KMDB_API_KEY}
+
 openai:
   api:
     key: ${OPENAI_API_KEY}

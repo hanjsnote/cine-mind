@@ -22,7 +22,13 @@ kofic:
   api:
     key: "test-kofic-api-key-test-kofic-api-key-test-kofic-api-key"
 
+kmdb:
+  api:
+    key: "test-kmdb-api-key-test-kmdb-api-key-test-kmdb-api-key"
+
 openai:
   api:
     key: "test-openai-api-key-test-openai-api-key-test-openai-api-key"
+
+
 
