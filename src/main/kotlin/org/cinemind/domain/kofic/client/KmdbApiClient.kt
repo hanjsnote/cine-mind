@@ -2,16 +2,18 @@ package org.cinemind.domain.kofic.client
 
 import org.cinemind.domain.kofic.dto.response.KmdbMovieResponse
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.http.HttpHeaders
-import org.springframework.http.MediaType
-import kotlin.text.get
+import org.springframework.web.reactive.function.client.WebClientResponseException
+import reactor.core.publisher.Mono
 
 // KMDb API와 통신을 담당하는 클라이언트
 @Component
 class KmdbApiClient (
-    @Value("\${KMDB_API_KEY:test-default-kmdb-key}")
+    @Value("\${kmdb.api.key}")
     private val serviceKey: String,
     private val webClientBuilder: WebClient.Builder
 ){
@@ -42,6 +44,10 @@ class KmdbApiClient (
             .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
             .retrieve()
             .bodyToMono(KmdbMovieResponse::class.java)
+            .onErrorResume { e ->
+                println("KMDB API Response Parsing Failed (Returning null): ${e.message}")
+                Mono.empty()
+            }
             .block()
     }
 }
