@@ -10,12 +10,13 @@ import org.springframework.stereotype.Component
 @Component
 class MovieMatchingService {
     // Jaro-Winkler 유사도 기준에 맞춰 임계값을 0.85 조정
-    private val MIN_TITLE_SCORE_THRESHOLD = 0.85
+    private val MIN_TITLE_SCORE_THRESHOLD = 0.2
+    private val YEAR_MATCH_BONUS = 0.05
 
     // KMDb 결과 목록(Result) 중 KOFIC의 제목과 개봉일(openDt)에 가장 일치하는 영화를 찾는다.
     // 제목 유사도와 연도 일치 여부를 종합적으로 고려하여 점수를 매긴다.
 
-    fun findBestMatch(koficTitle: String, kmdbResponse: KmdbMovieResponse?): KmdbResult? {
+    fun findBestMatch(koficTitle: String, koficOpenDt: String?, kmdbResponse: KmdbMovieResponse?): KmdbResult? {
         val kmdbResults = kmdbResponse
             ?.Data?.firstOrNull()
             ?.Result
@@ -25,7 +26,14 @@ class MovieMatchingService {
             return null
         }
 
-        // 정규화 시 불필요한 공백을 제거하고 비교
+        // KOFIC 개봉일에서 연도만 추출 (YYYY)
+        val koficYear = if (!koficOpenDt.isNullOrBlank() && koficOpenDt.length >= 4) {
+            koficOpenDt.substring(0, 4)
+        } else {
+            null
+        }
+
+        // 정규화 시 불필요한 공백을 제거
         val nomalizedKoficTitle = normalizeTitle(koficTitle)
 
         var bestMatch: KmdbResult? = null
@@ -33,6 +41,22 @@ class MovieMatchingService {
 
         for (candidate in kmdbResults) {
             val normalizedKmdbTitle = normalizeTitle(candidate.title)
+
+            // KMDb 결과의 releaseDate를 ratings 배열 내부에서 추출
+            val kmdbReleaseDate = candidate.ratings?.rating
+                ?.firstOrNull()
+                ?.releaseDate
+
+            // KMDB 결과의 개봉일에서 연도만 추출 (YYYY)
+            val kmdbYear = if (!kmdbReleaseDate.isNullOrBlank() && kmdbReleaseDate.length >= 4) {
+                kmdbReleaseDate.substring(0, 4)
+            } else {
+                null
+            }
+
+            if (normalizedKmdbTitle.isEmpty()) {
+                continue
+            }
 
             // 제목 유사도 점수 계산 (Jaro-Winkler) 계산
             val titleScore = calculateSimilarityScore(nomalizedKoficTitle, normalizedKmdbTitle)
@@ -42,9 +66,16 @@ class MovieMatchingService {
                 continue
             }
 
+            // 연도 일치 여부 확인 및 가산점 부여
+            var totalScore = titleScore
+            // 연도가 일치하면 추가 가산점(0.05) 부여
+            if (koficYear != null && kmdbYear != null && koficYear == kmdbYear) {
+                totalScore += YEAR_MATCH_BONUS
+            }
+
             // 최종 점수
-            if (titleScore > highestTotalScore) {
-                highestTotalScore = titleScore
+            if (totalScore > highestTotalScore) {
+                highestTotalScore = totalScore
                 bestMatch = candidate
             }
         }
@@ -52,9 +83,9 @@ class MovieMatchingService {
     }
 
     // 영화 이름을 정규화: 공백 제거, 소문자 변환 등
-    private fun normalizeTitle(title: String): String {
-        // "어벤져서: 엔드게임"같이 부제를 비교할 수 있도록 콜론(:)이나 하이픈(-) 등은 제거하지 않고 공백을 제거 후 소문자 변환
-        return title.trim().replace("\\s".toRegex(), "").lowercase()
+    private fun normalizeTitle(title: String?): String {
+        // "어벤져스: 엔드게임"같이 부제를 비교할 수 있도록 콜론(:)이나 하이픈(-) 등은 제거하지 않고 공백을 제거 후 소문자 변환
+        return title?.trim()?.replace("\\s".toRegex(), "")?.lowercase() ?: ""
     }
 
     // 두 정규화된 영화 이름간의 유사도 점수를 Jaro-Winkler 알고리즘으로 계산
@@ -80,7 +111,7 @@ class MovieMatchingService {
             for (j in start..end) {
                 if (!matches2[j] && s1[i] == s2[j]) {
                     matches1[i] = true
-                    matches2[i] = true
+                    matches2[j] = true
                     m++
                     break
                 }
