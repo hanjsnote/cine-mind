@@ -1,12 +1,9 @@
 package org.cinemind.domain.kofic.service
 
-import com.fasterxml.jackson.annotation.JsonGetter
 import jakarta.transaction.Transactional
 import org.cinemind.domain.kofic.client.KmdbApiClient
 import org.cinemind.domain.kofic.client.KoficApiClient
-import org.cinemind.domain.kofic.dto.response.KmdbDataContainer
 import org.cinemind.domain.kofic.dto.response.MovieInfo
-import org.cinemind.domain.kofic.dto.response.PlotInfo
 import org.cinemind.domain.movie.entity.Company
 import org.cinemind.domain.movie.entity.Genre
 import org.cinemind.domain.movie.entity.Movie
@@ -15,7 +12,6 @@ import org.cinemind.domain.movie.entity.MovieGenre
 import org.cinemind.domain.movie.entity.MoviePeople
 import org.cinemind.domain.movie.entity.People
 import org.cinemind.domain.movie.enums.PeopleRole
-import org.cinemind.domain.movie.repository.BoxOfficeRepository
 import org.cinemind.domain.movie.repository.CompanyRepository
 import org.cinemind.domain.movie.repository.GenreRepository
 import org.cinemind.domain.movie.repository.MovieCompanyRepository
@@ -23,7 +19,6 @@ import org.cinemind.domain.movie.repository.MovieGenreRepository
 import org.cinemind.domain.movie.repository.MoviePeopleRepository
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.movie.repository.PeopleRepository
-import org.cinemind.util.DateUtils
 import org.springframework.stereotype.Service
 
 @Service
@@ -38,6 +33,7 @@ class KoficDataSyncService (
     private val movieGenreRepository: MovieGenreRepository,
     private val moviePeopleRepository: MoviePeopleRepository,
     private val movieCompanyRepository: MovieCompanyRepository,
+    private val movieMatchingService: MovieMatchingService,
 ){
     // 전체 영화 목록을 조회
     fun saveMovieList() {
@@ -92,13 +88,18 @@ class KoficDataSyncService (
         // KOFIC의 제목(movieNm)과 개봉일(openDt)을 KMDb 검색 파라미터로 사용
         val kmdbInfo = kmdbApiClient.getKmdbMovieDetail(movieInfo.movieNm, movieInfo.openDt)
 
+        // 퍼지 매칭을 통해 유사도가 높은 최적의 KMDb 영화를 찾음
+        val bestMatch = movieMatchingService.findBestMatch(movieInfo.movieNm, movieInfo.openDt, kmdbInfo)
+
+        // KoficDataSyncService
         // 줄거리 추출: KmMovieResponse 구조에 맞춰서 추출
-        val plotText = kmdbInfo?.Data?.firstOrNull()
-            ?.Result?.firstOrNull()
+        val plotText = bestMatch
             ?.plots
-            ?.plot?.firstOrNull()
+            ?.plot?.firstOrNull{it.plotLang == "한국어"}
             ?.plotText
-            ?.replace("!", "") ?: "줄거리 정보 없음"
+            ?.replace("!", "")
+            ?.trim()
+            ?: "줄거리 정보 없음"
 
         // Movie 엔티티 저장 (목록 API 정보 + 상세 API 정보)
         val savedMovie = saveMovie(movieInfo, plotText)

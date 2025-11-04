@@ -72,6 +72,7 @@ class ChatService (
                 개봉일: ${movie.openDt}
                 영화유형: ${movie.typeNm}
                 관람등급: ${movie.watchGradeNm}
+                줄거리: ${movie.plot}
                 ""${'"'}
                 """
             }
