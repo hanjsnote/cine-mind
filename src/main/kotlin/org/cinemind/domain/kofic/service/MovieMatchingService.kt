@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 @Component
 class MovieMatchingService {
     // Jaro-Winkler 유사도 기준에 맞춰 임계값을 0.85 조정
-    private val MIN_TITLE_SCORE_THRESHOLD = 0.2
+    private val MIN_TITLE_SCORE_THRESHOLD = 0.5
     private val YEAR_MATCH_BONUS = 0.05
 
     // KMDb 결과 목록(Result) 중 KOFIC의 제목과 개봉일(openDt)에 가장 일치하는 영화를 찾는다.
