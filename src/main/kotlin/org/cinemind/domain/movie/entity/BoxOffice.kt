@@ -12,7 +12,7 @@ import jakarta.persistence.Table
 import org.cinemind.common.entity.BaseEntity
 
 @Entity
-@Table(name = "box_office")
+@Table(name = "box_offices")
 class BoxOffice (
 
     @ManyToOne(fetch = FetchType.LAZY)
