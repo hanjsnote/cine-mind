@@ -10,7 +10,7 @@ import org.cinemind.common.entity.BaseEntity
 
 // 제작사 정보
 @Entity
-@Table(name="companys")
+@Table(name="companies")
 class Company (
 
     val companyCd: String,      // 참여 영화사 코드
