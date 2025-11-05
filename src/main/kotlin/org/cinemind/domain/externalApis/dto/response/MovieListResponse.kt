@@ -1,4 +1,4 @@
-package org.cinemind.domain.kofic.dto.response
+package org.cinemind.domain.externalApis.dto.response
 
 // 최상위 응답 객체
 data class MovieListResponse(

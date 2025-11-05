@@ -1,7 +1,7 @@
-package org.cinemind.domain.kofic.client
+package org.cinemind.domain.externalApis.client
 
-import com.fasterxml.jackson.databind.ObjectMapper // 1. ObjectMapper 임포트
-import org.cinemind.domain.kofic.dto.response.KmdbMovieResponse
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.cinemind.domain.externalApis.dto.response.KmdbMovieResponse
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType

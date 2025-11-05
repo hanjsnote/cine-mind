@@ -1,4 +1,4 @@
-package org.cinemind.domain.kofic.dto.response
+package org.cinemind.domain.externalApis.dto.response
 
 // BoxOffice 응답 최상위 객체
 data class BoxOfficeResponse (

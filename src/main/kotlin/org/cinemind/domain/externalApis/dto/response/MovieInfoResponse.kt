@@ -1,7 +1,6 @@
-package org.cinemind.domain.kofic.dto.response
+package org.cinemind.domain.externalApis.dto.response
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import java.time.LocalDate
 
 // Kofic API 응답의 최상위 객체
 data class MovieInfoResponse (

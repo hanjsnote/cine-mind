@@ -1,7 +1,7 @@
-package org.cinemind.domain.kofic.service
+package org.cinemind.domain.externalApis.service
 
-import org.cinemind.domain.kofic.dto.response.KmdbMovieResponse
-import org.cinemind.domain.kofic.dto.response.KmdbResult
+import org.cinemind.domain.externalApis.dto.response.KmdbMovieResponse
+import org.cinemind.domain.externalApis.dto.response.KmdbResult
 import org.springframework.stereotype.Component
 
 /**
@@ -11,14 +11,16 @@ import org.springframework.stereotype.Component
 class MovieMatchingService {
     // Jaro-Winkler 유사도 기준에 맞춰 임계값을 0.85 조정
     private val MIN_TITLE_SCORE_THRESHOLD = 0.85
+    // 연도 일치 가산점
     private val YEAR_MATCH_BONUS = 0.1
+    // 제목이 완벽히 일치하면 부여함
+    private val HIGH_SCORE_BONUS = 10.0
 
     // KMDb 결과 목록(Result) 중 KOFIC의 제목과 개봉일(openDt)에 가장 일치하는 영화를 찾는다.
     // 제목 유사도와 연도 일치 여부를 종합적으로 고려하여 점수를 매긴다.
     fun findBestMatch(koficTitle: String, koficOpenDt: String?, kmdbResponse: KmdbMovieResponse?): KmdbResult? {
         val kmdbResults = kmdbResponse
-            ?.Data?.firstOrNull()
-            ?.Result
+            ?.Data?.firstOrNull()?.Result
             ?: return null
 
         if (kmdbResults.isEmpty()) {
