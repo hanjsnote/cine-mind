@@ -1,9 +1,9 @@
-package org.cinemind.domain.kofic.service
+package org.cinemind.domain.externalApis.service
 
 import jakarta.transaction.Transactional
-import org.cinemind.domain.kofic.client.KmdbApiClient
-import org.cinemind.domain.kofic.client.KoficApiClient
-import org.cinemind.domain.kofic.dto.response.MovieInfo
+import org.cinemind.domain.externalApis.client.KmdbApiClient
+import org.cinemind.domain.externalApis.client.KoficApiClient
+import org.cinemind.domain.externalApis.dto.response.MovieInfo
 import org.cinemind.domain.movie.entity.Company
 import org.cinemind.domain.movie.entity.Genre
 import org.cinemind.domain.movie.entity.Movie

@@ -1,7 +1,7 @@
 package org.cinemind.scheduler
 
-import org.cinemind.domain.kofic.service.BoxOfficeSyncService
-import org.cinemind.domain.kofic.service.KoficDataSyncService
+import org.cinemind.domain.externalApis.service.BoxOfficeSyncService
+import org.cinemind.domain.externalApis.service.KoficDataSyncService
 import org.springframework.context.annotation.Profile
 import org.springframework.context.event.ContextRefreshedEvent
 import org.springframework.context.event.EventListener

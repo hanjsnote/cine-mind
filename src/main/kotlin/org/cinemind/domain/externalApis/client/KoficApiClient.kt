@@ -1,16 +1,14 @@
-package org.cinemind.domain.kofic.client
+package org.cinemind.domain.externalApis.client
 
-import org.cinemind.domain.kofic.dto.response.BoxOfficeInfo
-import org.cinemind.domain.kofic.dto.response.BoxOfficeResponse
-import org.cinemind.domain.kofic.dto.response.MovieInfo
-import org.cinemind.domain.kofic.dto.response.MovieInfoResponse
-import org.cinemind.domain.kofic.dto.response.MovieListResponse
-import org.cinemind.domain.kofic.dto.response.MovieListResult
+import org.cinemind.domain.externalApis.dto.response.BoxOfficeInfo
+import org.cinemind.domain.externalApis.dto.response.BoxOfficeResponse
+import org.cinemind.domain.externalApis.dto.response.MovieInfo
+import org.cinemind.domain.externalApis.dto.response.MovieInfoResponse
+import org.cinemind.domain.externalApis.dto.response.MovieListResponse
+import org.cinemind.domain.externalApis.dto.response.MovieListResult
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.bodyToMono
 
 // API 키와 URL을 사용하여 KOFIC API와 통신을 담당하는 클라이언트
 @Component
