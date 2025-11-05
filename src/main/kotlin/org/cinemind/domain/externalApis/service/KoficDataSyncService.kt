@@ -19,6 +19,7 @@ import org.cinemind.domain.movie.repository.MovieGenreRepository
 import org.cinemind.domain.movie.repository.MoviePeopleRepository
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.movie.repository.PeopleRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
@@ -35,6 +36,8 @@ class KoficDataSyncService (
     private val movieCompanyRepository: MovieCompanyRepository,
     private val movieMatchingService: MovieMatchingService,
 ){
+    private val log = LoggerFactory.getLogger(KoficDataSyncService::class.java)
+
     // 전체 영화 목록을 조회
     fun saveMovieList() {
         val itemPerPage = 10   // 한 번에 적재할 영화 갯수
@@ -87,6 +90,39 @@ class KoficDataSyncService (
         // KMDb 줄거리 조회 API 호출 (줄거리 확보)
         // KOFIC의 제목(movieNm)과 개봉일(openDt)을 KMDb 검색 파라미터로 사용
         val kmdbInfo = kmdbApiClient.getKmdbMovieDetail(movieInfo.movieNm, movieInfo.openDt)
+
+        // --- [매칭 로직 및 디버그 로깅 시작] ---
+        // 1. 상세 매칭 후보 리스트를 가져옴
+        val detailedMatches = movieMatchingService.getDetailedMatchCandidates(movieInfo.movieNm, movieInfo.openDt, kmdbInfo)
+
+        if (detailedMatches.isEmpty()) {
+            log.warn("[{}] KOFIC 제목 '{}' 에 대한 유효한 KMDb 후보가 없습니다. (유사도 임계값 미달)", movieInfo.movieCd, movieInfo.movieNm)
+            return null
+        }
+
+        // 2. 디버깅용 로그 출력
+        log.info("------ [매칭 분석] KOFIC 영화: {} ({}) ------", movieInfo.movieNm, movieInfo.openDt)
+        detailedMatches.forEachIndexed { index, detail ->
+            val matchResult = detail.kmdbResult
+            val kmdbReleaseDate = matchResult.ratings?.rating?.firstOrNull()?.releaseDate
+            val kmdbYear = if (!kmdbReleaseDate.isNullOrBlank() && kmdbReleaseDate.length >= 4) {
+                kmdbReleaseDate.substring(0, 4)
+            } else {
+                "N/A"
+            }
+
+            log.info(
+                "  [{}. KMDB: {} ({}년) | 제목 유사도: {} | 연도 일치: {} | 완벽 보너스: {} | 최종 점수: {}]",
+                index + 1,
+                matchResult.title,
+                kmdbYear,
+                String.format("%.4f", detail.titleScore),
+                if (detail.yearMatch) "true" else "false",
+                if (detail.isHighScoreBonusApplied) "true" else "false",
+                String.format("%.4f", detail.totalScore)
+            )
+        }
+        log.info("----------------------------------------------")
 
         // 퍼지 매칭을 통해 유사도가 높은 최적의 KMDb 영화를 찾음
         val bestMatch = movieMatchingService.findBestMatch(movieInfo.movieNm, movieInfo.openDt, kmdbInfo)

@@ -1,5 +1,6 @@
 package org.cinemind.domain.externalApis.service
 
+import org.cinemind.domain.externalApis.dto.etc.MatchDetail
 import org.cinemind.domain.externalApis.dto.response.KmdbMovieResponse
 import org.cinemind.domain.externalApis.dto.response.KmdbResult
 import org.springframework.stereotype.Component
@@ -19,12 +20,24 @@ class MovieMatchingService {
     // KMDb 결과 목록(Result) 중 KOFIC의 제목과 개봉일(openDt)에 가장 일치하는 영화를 찾는다.
     // 제목 유사도와 연도 일치 여부를 종합적으로 고려하여 점수를 매긴다.
     fun findBestMatch(koficTitle: String, koficOpenDt: String?, kmdbResponse: KmdbMovieResponse?): KmdbResult? {
+        val detailedCandidates = getDetailedMatchCandidates(koficTitle, koficOpenDt, kmdbResponse)
+
+        return detailedCandidates
+            .maxByOrNull { it.totalScore }
+            ?.kmdbResult
+    }
+
+    // 매칭 후보 상세 점수 리스트를 반환 (디버깅 및 분석)
+    // 제목 유사도와 연도 일치 여부를 종합적으로 고려하여 점수를 매긴다.
+    fun getDetailedMatchCandidates(koficTitle: String, koficOpenDt: String?, kmdbResponse: KmdbMovieResponse?): List<MatchDetail> {
+
         val kmdbResults = kmdbResponse
-            ?.Data?.firstOrNull()?.Result
-            ?: return null
+            ?.Data?.firstOrNull()
+            ?.Result
+            ?: return emptyList() // 후보가 없으면 빈 리스트 반환
 
         if (kmdbResults.isEmpty()) {
-            return null
+            return emptyList()
         }
 
         // KOFIC 개봉일에서 연도만 추출 (YYYY)
@@ -36,8 +49,9 @@ class MovieMatchingService {
 
         // 정규화 시 불필요한 공백을 제거
         val nomalizedKoficTitle = normalizeTitle(koficTitle)
-        var bestMatch: KmdbResult? = null
-        var highestTotalScore = -1.0 // 초기 점수
+
+        // 상세 점수를 저장할 리스트
+        val candidatesList = mutableListOf<MatchDetail>()
 
         for (candidate in kmdbResults) {
             val normalizedKmdbTitle = normalizeTitle(candidate.title)
@@ -66,20 +80,35 @@ class MovieMatchingService {
                 continue
             }
 
-            // 연도 일치 여부 확인 및 가산점 부여
+            // 점수 및 플래그 초기화
             var totalScore = titleScore
-            // 연도가 일치하면 추가 가산점(0.1) 부여
-            if (koficYear != null && kmdbYear != null && koficYear == kmdbYear) {
+            val isYearMatch = (koficYear != null && kmdbYear != null && koficYear == kmdbYear)
+            var isHightScoreBonusApplied = false
+
+            // 연도가 일치 가산점
+            if (isYearMatch) {
                 totalScore += YEAR_MATCH_BONUS
             }
-
-            // 최종 점수
-            if (totalScore > highestTotalScore) {
-                highestTotalScore = totalScore
-                bestMatch = candidate
+            // 제목 완벽 일치 가산점
+            if (nomalizedKoficTitle.equals(normalizedKmdbTitle)) {
+                totalScore += HIGH_SCORE_BONUS
+                isHightScoreBonusApplied = true
             }
+
+            // 상세 정보를 리스트에 추가
+            candidatesList.add(
+                MatchDetail(
+                    kmdbResult = candidate,
+                    normalizedKmdbTitle = normalizedKmdbTitle,
+                    titleScore = titleScore,
+                    yearMatch = isYearMatch,
+                    totalScore = totalScore,
+                    isHighScoreBonusApplied = isHightScoreBonusApplied
+                ))
         }
-        return bestMatch
+
+        // 총 점수가 높은 순으로 정렬하여 반환
+        return candidatesList.sortedByDescending { it.totalScore }
     }
 
     private fun normalizeTitle(title: String?): String {
