@@ -1,5 +1,6 @@
 package org.cinemind.domain.chatbot.client
 
+import org.cinemind.config.openai.OpenAiConfigProperties
 import org.cinemind.domain.chatbot.dto.message.Message
 import org.cinemind.domain.chatbot.dto.request.ChatRequest
 import org.cinemind.domain.chatbot.dto.response.ChatResponse
@@ -14,13 +15,12 @@ import reactor.core.publisher.Mono
  */
 @Component
 class OpenAiClient(
-    private val webClient: WebClient,
-    @Value("\${openai.api.key}")
-    private val openAIApiKey: String
+    private val webClientBuilder: WebClient.Builder,
+    private val openAiConfigProperties: OpenAiConfigProperties
 ) {
     // LLM 모델 정보 정의
     private val LLM_MODEL = "gpt-4o-mini"
-    private val API_URI = "https://api.openai.com/v1/chat/completions"
+    private val API_PATH = "/v1/chat/completions"
 
     // LLM에 질문(프롬프트)을 전송하고 답변을 받는다
     // RAG의 Context와 사용자 질문이 합쳐진 형태가 userQuery로 전달
@@ -34,9 +34,12 @@ class OpenAiClient(
             )
         )
 
+        // 설정 정보를 사용하여 WebClient 인스턴스를 빌드
+        val webClient = webClientBuilder.baseUrl(openAiConfigProperties.chatUrl).build()
+
         return webClient.post()
-            .uri(API_URI)
-            .header("Authorization", "Bearer $openAIApiKey")
+            .uri(API_PATH)
+            .header("Authorization", "Bearer ${openAiConfigProperties.key}")
             .bodyValue(request)
             .retrieve()
             .bodyToMono<ChatResponse>()

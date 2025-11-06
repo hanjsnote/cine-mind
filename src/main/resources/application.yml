@@ -32,6 +32,10 @@ kmdb:
 openai:
   api:
     key: ${OPENAI_API_KEY}
+    # RAG 임베딩 API URL 추가 (text-embedding-3-small 모델 사용)
+    embedding-url: "https://api.openai.com/v1/embeddings"
+    # Chat Completion API URL 추가 (gpt-4o-mini 모델 사용)
+    chat-url: "https://api.openai.com/v1/chat/completions"
 
 logging:
   level:
