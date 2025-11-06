@@ -31,7 +31,7 @@ class RagIndexingService (
 
             // 생성된 임베딩 DTO들을 엔티티로 변환하여 저장
             val embeddingEntities = embeddingDtos.map { toEntity(it) }
-//            movieEmbeddingRepository.saveAll(embeddingEntities)
+            movieEmbeddingRepository.saveAll(embeddingEntities)
         }
     }
 
