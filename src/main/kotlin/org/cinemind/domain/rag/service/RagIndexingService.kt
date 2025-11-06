@@ -5,6 +5,7 @@ import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.rag.client.RagEmbeddingClient
 import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
 import org.cinemind.domain.rag.dto.etc.MovieRagDto
+import org.cinemind.domain.rag.entity.MovieEmbedding
 import org.cinemind.domain.rag.repository.MovieEmbeddingRepository
 import org.springframework.stereotype.Service
 
@@ -94,10 +95,20 @@ class RagIndexingService (
         """.trimIndent().trim()
     }
 
+    // DTO를 엔티티로 변환
+    private fun toEntity(dto: MovieEmbeddingDto): MovieEmbedding {
+        // DTO의 movieId를 사용하여 실제 Movie 엔티티 조회
+        // 이 과정이 N번 발생하면 비효율저이므로 추후 최적화 필요
+        val movie = movieRepository.findById(dto.movieId)
+            .orElseThrow { NoSuchElementException("Movie not found with ID: ${dto.movieId}") }
 
-    private fun toEntity(dto: MovieEmbeddingDto): MovieEmbeddingDto {
-
-
-        return TODO("반환 값을 제공하세요")
+        return MovieEmbedding(
+            movie = movie,
+            metaText = dto.metaText,
+            plotText = dto.plotText,
+            metaVector = dto.metaVector,
+            plotVector = dto.plotVector,
+            chunkOrder = dto.chunkOrder
+        )
     }
 }
