@@ -1,5 +1,6 @@
 package org.cinemind.domain.movie.entity
 
+import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
@@ -8,6 +9,8 @@ import jakarta.persistence.Id
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.cinemind.common.entity.BaseEntity
+import org.cinemind.domain.rag.entity.MovieEmbedding
+import org.hibernate.validator.cfg.context.Cascadable
 
 // 영화 기본 정보
 @Entity
@@ -44,4 +47,7 @@ class Movie (
 
     @OneToMany(mappedBy = "movie")
     val boxOffice: MutableSet<BoxOffice> = mutableSetOf()
+
+    @OneToMany(mappedBy = "movie", cascade = [CascadeType.ALL])
+    val movieEmbedding: MutableSet<MovieEmbedding> = mutableSetOf()
 }
