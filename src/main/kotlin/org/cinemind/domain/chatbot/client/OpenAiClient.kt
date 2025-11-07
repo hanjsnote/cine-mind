@@ -3,9 +3,8 @@ package org.cinemind.domain.chatbot.client
 import org.cinemind.config.openai.OpenAiConfigProperties
 import org.cinemind.domain.chatbot.dto.message.Message
 import org.cinemind.domain.chatbot.dto.request.ChatRequest
-import org.cinemind.domain.chatbot.dto.response.ChatResponse
+import org.cinemind.domain.chatbot.dto.response.OpenAiChatCompletion
 import org.cinemind.domain.chatbot.enum.MessageRole
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
@@ -42,7 +41,7 @@ class OpenAiClient(
             .header("Authorization", "Bearer ${openAiConfigProperties.key}")
             .bodyValue(request)
             .retrieve()
-            .bodyToMono<ChatResponse>()
+            .bodyToMono<OpenAiChatCompletion>()
             .map { response ->
                 // 첫 번째 선택지 (choices[0]의 content를 반환
                 response.choices.firstOrNull()?.message?.content ?: "응답을 받을 수 없습니다."

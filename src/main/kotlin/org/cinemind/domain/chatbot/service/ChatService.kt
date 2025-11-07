@@ -1,25 +1,30 @@
 package org.cinemind.domain.chatbot.service
 
 import org.cinemind.domain.chatbot.client.OpenAiClient
-import org.cinemind.domain.movie.entity.Movie
-import org.cinemind.domain.movie.repository.MovieRepository
+import org.cinemind.domain.chatbot.dto.response.ChatResponse
+import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
+import org.cinemind.domain.rag.service.RagRetrievalService
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 /**
  * 챗봇의 핵심 비즈니스 로직(RAG 오케스트레이션)을 담당하는 서비스
+ * 이 서비스는 다음 3단계를 통ㅎ바하여 실행 (R -> A -> G)
+ * 1. Retrieval (검색): RagRetrievalService를 통해 Context 확보
+ * 2. Augmentation (증강): 확보된 Context로 프롬프트 증강
+ * 3. Generation (생성): OpenAiClient를 통해 답변 생성
  * */
 @Service
 class ChatService (
     private val openAiClient: OpenAiClient,
-    private val movieRepository: MovieRepository
+    private val ragRetrievalService: RagRetrievalService
 //    private val chatCacheService: ChatCacheService    // 캐싱은 나중에 추가
 ){
     // 챗봇 페르소나 및 답변 규칙 정의
     private val SYSTEM_INSTRUCTION = """
         당신은 '시네마인드'의 전문 영화 추천 및 정보 제공 챗봇입니다.
         사용자의 질문에 대해 항상 친절하고 정확하게 답변해야 합니다.
-        
+
         1. 답변시에는 제공된 [CONTEXT] 정보를 최우선으로 활용해야 합니다.
         2. 만약 [CONTEXT]가 "제공할 Context 정보가 없습니다."로 비어 있다면, **당신의 기본 지식이나 일반 상식을 일절 활용하지 말고**, 오직 다음 문구만 출력해야 합니다: "제가 가진 영화 정보에는 해당 내용이 없습니다." 이외의 **어떠한 부가 설명도 절대 금지**합니다.
         3. [CONTEXT] 정보가 있다면, 답변은 사용자가 영화에 흥미를 느낄 수 있도록 매력적이고 간결하게 작성해주세요.
@@ -28,59 +33,49 @@ class ChatService (
 
     // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
     // userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
-    fun getLLMResponse(userQuery: String): Mono<String> {
-        // (RAG 1단계 - 검색) 사용자 질문에서 검색 키워드를 추출하고 DB에서 관련 정보 찾기
-        val contextMovies = getContextFromMovieDB(userQuery)
+    fun getLLMResponse(userQuery: String): Mono<ChatResponse> {
+        // (RAG 1단계 - 검색) 사용자 질문을 벡터화하여 가장 관련성이 높은 Context 청크를 검색
+        val contextChunks = ragRetrievalService.retrieveRelevantContext(userQuery)
 
         // Context 기반으로 최종 프롬프트(userQuery) 생성
-        val fullPrompt = createFullPrompt(userQuery, contextMovies)
+        val fullPrompt = createFullPrompt(userQuery, contextChunks)
 
         // (LLM 호출) 최종 프롬프트를 LLM 클라이언트에 전달하여 응답을 받는다.
-        return openAiClient.getChatCompletion(SYSTEM_INSTRUCTION, fullPrompt)
-    }
+        val llmResponseMono = openAiClient.getChatCompletion(SYSTEM_INSTRUCTION, fullPrompt)
 
-    // 임시 RAG 로직
-    // 사용자 질문에 가장 관련 있는 영화 정보를 DB(MovieRepository)에서 찾는다.
-    // 주의: 현재는 사용자 질문의 '첫 번째 단어'만 키워드로 사용해서 검색
-    // 예) "영화 광해에 대해 성명해줘" -> "영화"로 검색 (부정확)
-    // 예) "광해 정보는 뭐야?" -> "광해"로 검색(정확)
-    // 이 로직은 나중에 벡터 검색으로 대체
-    private fun getContextFromMovieDB(userQuery: String): List<Movie> {
-        // 질문의 첫 번째 단어를 임시 키워드로 사용
-        val keyword = userQuery.trim().split(" ").firstOrNull() ?: ""
-
-        if (keyword.isBlank()) {
-            return emptyList()
+        // LLM 응답이 오면 이를 검색된 Context와 함께 RagResponseDto로 매핑하여 반환
+        return llmResponseMono.map { answer ->
+            // 검색 근거로 사용된 텍스트 청크를 리스트로 구성
+            val sources = contextChunks.map {
+                // 메타 정보와 줄거리를 구분하여 근거로 사용 (디버깅용)
+                "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
+            }
+            ChatResponse(
+                answer = answer,
+                sources = sources
+            )
         }
-
-        // movieNm 필드에서 키워드를 포함하는 영화를 검색 최대 3개까지만 Context로 사용
-        return movieRepository.findByMovieNmContainingIgnoreCase(keyword).take(3)
     }
 
     // LLM에게 전달할 최종 프롬프트를 생성
     // 시스템 지시문 + [CONTEXT] + 사용자 질문의 구조를 가짐
-    private fun createFullPrompt(userQuery: String, contextMovies: List<Movie>): String{
-        // ContextMovies가 없으면 빈 문자열을, 있으면 형식화된 영화 정보를 포함
-        val contextString = if (contextMovies.isEmpty()) {
+    private fun createFullPrompt(userQuery: String, contextChunks: List<MovieEmbeddingDto>): String{
+        // contextChunks 없으면 빈 문자열을, 있으면 형식화된 영화 정보를 포함
+        val contextString = if (contextChunks.isEmpty()) {
             "제공할 Context 정보가 없습니다."
         } else {
-            contextMovies.joinToString (separator = "\n---\n"){ movie ->
-                """
-                영화명(국문): ${movie.movieNm}
-                영화명(영문): ${movie.movieNmEn}
-                상영시간: ${movie.showTm}분
-                개봉일: ${movie.openDt}
-                영화유형: ${movie.typeNm}
-                관람등급: ${movie.watchGradeNm}
-                줄거리: ${movie.plot}
-                ""${'"'}
-                """
+            contextChunks.joinToString (separator = "\n---\n"){ dto ->
+              """
+              [검색된 영화 컨텍스트]
+              [메타데이터] ${dto.metaText}
+              [줄거리 청크] ${dto.plotText}
+              """.trimIndent()
             }
         }
         return """
         [CONTEXT]
          $contextString
-        
+
         [사용자 질문]
         $userQuery
         """.trimIndent()
