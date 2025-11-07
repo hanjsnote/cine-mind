@@ -17,10 +17,10 @@ class MovieEmbeddingDto (
     val plotText: String,
 
     // 메타 벡터
-    val metaVector: String,
+    val metaVector: FloatArray,
 
     // 줄거리 벡터
-    val plotVector: String,
+    val plotVector: FloatArray,
 
     // 청크 순서
     val chunkOrder: Int

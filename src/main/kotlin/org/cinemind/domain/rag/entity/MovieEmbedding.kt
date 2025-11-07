@@ -1,6 +1,7 @@
 package org.cinemind.domain.rag.entity
 
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
@@ -11,6 +12,9 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.cinemind.common.entity.BaseEntity
 import org.cinemind.domain.movie.entity.Movie
+import org.hibernate.annotations.Array
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 
 @Entity
 @Table(name = "movie_embeddings")
@@ -30,12 +34,16 @@ class MovieEmbedding(
     val plotText : String,
 
     // 정형 데이터 임베딩
-    @Column(name = "meta_vector", columnDefinition = "vector", nullable = false)
-    val metaVector: String,
+    @Column(name = "meta_vector")
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Array(length = 1536)
+    val metaVector: FloatArray,
 
     // 비정형(줄거리) 데이터 임베딩
-    @Column(name = "plot_vector", columnDefinition = "vector", nullable = false)
-    val plotVector: String,
+    @Column(name = "plot_vector")
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Array(length = 1536)
+    val plotVector: FloatArray,
 
     // 청크가 원본 줄거리에서 몇 번째 청크인지 (순서 재구성용)
     @Column(name = "chunk_order")

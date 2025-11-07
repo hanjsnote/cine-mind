@@ -34,6 +34,7 @@ dependencies {
     // DB 드라이버 및 벡터 DB 의존성
     runtimeOnly("org.postgresql:postgresql")
     implementation("io.hypersistence:hypersistence-utils-hibernate-62:3.7.0")
+    implementation("org.hibernate.orm:hibernate-vector:6.6.29.Final")
     // JWT 관련 의존성
     implementation("io.jsonwebtoken:jjwt-api:0.11.5")
     implementation("io.jsonwebtoken:jjwt-impl:0.11.5")
