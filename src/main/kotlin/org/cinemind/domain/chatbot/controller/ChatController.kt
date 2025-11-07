@@ -1,5 +1,6 @@
 package org.cinemind.domain.chatbot.controller
 
+import org.cinemind.domain.chatbot.dto.response.ChatResponse
 import org.cinemind.domain.chatbot.service.ChatService
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -23,7 +24,7 @@ class ChatController (
 
     // 사용자 질문을 처리하고 챗봇 응답을 반환하는 API 엔드포인트
     @PostMapping
-    fun getChatResponse(@RequestBody request: UserQueryRequest): Mono<String> {
+    fun getChatResponse(@RequestBody request: UserQueryRequest): Mono<ChatResponse> {
         // ChatService에 질문을 위임하여 답변을 받음
         return chatService.getLLMResponse(request.userQuery)
     }
