@@ -8,6 +8,7 @@ import org.cinemind.domain.movie.enums.PeopleRole
  * RAG Context 생성을 위해 Movie 엔티티에서 필요한 모든 정보와 연결되는 DTO
  **/
 data class MovieRagDto(
+    val id: Long?,
     val movieCd: String,
     val movieNm: String,
     val movieNmEn: String?,
@@ -55,6 +56,7 @@ data class MovieRagDto(
             }
 
             return MovieRagDto(
+                id = movie.id,
                 movieCd = movie.movieCd,
                 movieNm = movie.movieNm,
                 movieNmEn = movie.movieNm,

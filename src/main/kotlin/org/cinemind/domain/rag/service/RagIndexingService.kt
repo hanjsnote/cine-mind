@@ -1,6 +1,7 @@
 package org.cinemind.domain.rag.service
 
 import jakarta.transaction.Transactional
+import org.cinemind.domain.movie.entity.Movie
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.rag.client.RagEmbeddingClient
 import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
@@ -18,11 +19,20 @@ class RagIndexingService (
     // 전체 영화 데이터를 RAG 벡터 스토어에 인덱싱
     @Transactional
     fun indexAllMovies() {
+       // Fetch Join이 적용된 findAll()을 사용하여 N+1 방지
+        val allMovies = movieRepository.findAll()
+
+        // 모든 Movie 엔티티를 미리 조회하여 Map<Long, Movie>로 구성
+        // 이후 MovieEmbedding 엔티티를 생성할 때 Movie 엔티티를 조회할 때 사용
+        val allMoviesMap = allMovies.associateBy { it.id!! }
+
         // 전체 Movie 엔티티를 조회하고 MovieRagDto로 변환
-        val movieRagDtos = movieRepository.findAll().map { MovieRagDto.from(it) }
+        val movieRagDtos = allMovies.map { MovieRagDto.from(it) }
 
         // 기존 임베딩 데이터가 있다면 삭제
         movieEmbeddingRepository.deleteAll()
+
+        val allEmbeddingEntities = mutableListOf<MovieEmbedding>()
 
         // 각 영화 DTO에 대해 청크 분할 및 임베딩 작업 수행
         movieRagDtos.forEach { dto ->
@@ -30,13 +40,18 @@ class RagIndexingService (
             val embeddingDtos = createChunkAndEmbeddings(dto)
 
             // 생성된 임베딩 DTO들을 엔티티로 변환하여 저장
-            val embeddingEntities = embeddingDtos.map { toEntity(it) }
-            movieEmbeddingRepository.saveAll(embeddingEntities)
+            val embeddingEntities = embeddingDtos.map { toEntity(it, allMoviesMap) }
+            allEmbeddingEntities.addAll(embeddingEntities)
         }
+        
+        // 모든 엔티티를 모아서 한 번에 저장
+        movieEmbeddingRepository.saveAll(allEmbeddingEntities)
     }
 
     // MovieRagDto를 기반으로 meta/plot 텍스트 청크를 생성하고 멀티-벡터 전략 임베딩을 수행하는 로직
     private fun createChunkAndEmbeddings(dto: MovieRagDto): List<MovieEmbeddingDto> {
+
+        val movieId = dto.id ?: throw IllegalStateException("Movie ID cannot be null during indexing. Check if Movie entity has been persisted correctly.")
 
         // 메타데이터 텍스트 생성
         val metaText = createMetaText(dto)
@@ -58,7 +73,7 @@ class RagIndexingService (
                 embeddingList.add(
                     MovieEmbeddingDto(
                         id = null,  // 저장 시 자동 생성
-                        movieId = dto.movieCd.toLong(),
+                        movieId = movieId,
                         metaText = metaText,
                         plotText = plotChunk,
                         metaVector = metaVector,
@@ -89,18 +104,17 @@ class RagIndexingService (
             유형: ${dto.typeNm}
             장르: ${dto.genres.joinToString(", ")}
             감독: ${dto.directors.joinToString(", ")}
-            배우: ${dto.actors.joinToString("( / )")}
+            배우: ${dto.actors.joinToString(" / ")}
             제작사: ${dto.companies.joinToString (" / ")}
             $boxOfficeString
         """.trimIndent().trim()
     }
 
     // DTO를 엔티티로 변환
-    private fun toEntity(dto: MovieEmbeddingDto): MovieEmbedding {
+    private fun toEntity(dto: MovieEmbeddingDto, movieMap: Map<Long, Movie>): MovieEmbedding {
         // DTO의 movieId를 사용하여 실제 Movie 엔티티 조회
-        // 이 과정이 N번 발생하면 비효율저이므로 추후 최적화 필요
-        val movie = movieRepository.findById(dto.movieId)
-            .orElseThrow { NoSuchElementException("Movie not found with ID: ${dto.movieId}") }
+        val movie = movieMap[dto.movieId]
+            ?: throw NoSuchElementException("Movie not found with ID: ${dto.movieId}. 데이터 로딩 순서(Order)를 확인하세요.")
 
         return MovieEmbedding(
             movie = movie,
