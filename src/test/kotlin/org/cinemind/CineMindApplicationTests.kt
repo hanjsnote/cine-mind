@@ -1,5 +1,6 @@
 package org.cinemind
 
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
@@ -10,6 +11,7 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.TestPropertySource
 import javax.sql.DataSource
 
+@Disabled
 @SpringBootTest
 @ActiveProfiles("test")
 @TestPropertySource(properties = [

@@ -1,5 +1,6 @@
 package org.cinemind.domain.auth.service
 
+import com.ninjasquad.springmockk.MockkBean
 import jakarta.security.auth.message.AuthException
 import jakarta.transaction.InvalidTransactionException
 import org.assertj.core.api.Assertions.assertThat
@@ -7,12 +8,15 @@ import org.cinemind.common.exception.CommonErrorCode
 import org.cinemind.common.exception.GlobalException
 import org.cinemind.domain.auth.dto.request.SigninRequest
 import org.cinemind.domain.auth.dto.request.SignupRequest
+import org.cinemind.domain.chatbot.controller.ChatController
+import org.cinemind.domain.chatbot.service.ChatService
 import org.cinemind.domain.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.test.context.ActiveProfiles
 
@@ -25,6 +29,11 @@ class AuthServiceTest @Autowired constructor(
     @Autowired
     private lateinit var passwordEncoder: PasswordEncoder
 
+    @MockkBean
+    private lateinit var chatService: ChatService
+
+    @MockkBean
+    private lateinit var chatController: ChatController
 
     @BeforeEach
     fun setup() {

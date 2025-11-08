@@ -5,6 +5,8 @@ import io.mockk.every
 import io.mockk.verify
 import jakarta.transaction.Transactional
 import org.assertj.core.api.Assertions.assertThat
+import org.cinemind.domain.chatbot.controller.ChatController
+import org.cinemind.domain.chatbot.service.ChatService
 import org.cinemind.domain.externalApis.client.KmdbApiClient
 import org.cinemind.domain.externalApis.client.KoficApiClient
 import org.cinemind.domain.externalApis.dto.etc.MatchDetail
@@ -53,14 +55,20 @@ class KoficDataSyncServiceTest {
     @Autowired
     private lateinit var moviePeopleRepository: MoviePeopleRepository
 
+    @Autowired
+    private lateinit var koficService: KoficDataSyncService
+
     @MockkBean
     private lateinit var koficApiClient: KoficApiClient
 
     @MockkBean
     private lateinit var kmdbApiClient: KmdbApiClient
 
-    @Autowired
-    private lateinit var koficService: KoficDataSyncService
+    @MockkBean
+    private lateinit var chatService: ChatService
+
+    @MockkBean
+    private lateinit var chatController: ChatController
 
     @Test
     fun 신규_movieCd_전달시_Movie와_모든_매핑_엔티티를_저장한다() {
