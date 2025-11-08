@@ -4,6 +4,7 @@ import com.ninjasquad.springmockk.MockkBean
 import jakarta.security.auth.message.AuthException
 import jakarta.transaction.InvalidTransactionException
 import org.assertj.core.api.Assertions.assertThat
+import org.cinemind.AbstractIntegrationTest
 import org.cinemind.common.exception.CommonErrorCode
 import org.cinemind.common.exception.GlobalException
 import org.cinemind.domain.auth.dto.request.SigninRequest
@@ -16,7 +17,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.test.context.ActiveProfiles
 
@@ -25,7 +25,7 @@ import org.springframework.test.context.ActiveProfiles
 class AuthServiceTest @Autowired constructor(
     private val authService: AuthService,
     private val userRepository: UserRepository
-){
+) : AbstractIntegrationTest(){
     @Autowired
     private lateinit var passwordEncoder: PasswordEncoder
 

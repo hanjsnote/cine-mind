@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.verify
 import jakarta.transaction.Transactional
 import org.assertj.core.api.Assertions.assertThat
+import org.cinemind.AbstractIntegrationTest
 import org.cinemind.domain.chatbot.controller.ChatController
 import org.cinemind.domain.chatbot.service.ChatService
 import org.cinemind.domain.externalApis.client.KmdbApiClient
@@ -37,7 +38,7 @@ import kotlin.test.Test
 @SpringBootTest
 @Transactional
 @ActiveProfiles("test")
-class KoficDataSyncServiceTest {
+class KoficDataSyncServiceTest : AbstractIntegrationTest(){
     @MockkBean
     private lateinit var movieMatchingService: MovieMatchingService
     @Autowired
