@@ -17,9 +17,9 @@ class RagEmbeddingClient (
     // 임베딩 모델 정의
     private val EMBEDDING_MODEL = "text-embedding-3-small"
 
-    fun getEmbedding(text: String): String {
+    fun getEmbedding(text: String): FloatArray {
         if (text.isBlank()) {
-            return ""
+            return floatArrayOf()
         }
 
         // RagIndexingService에서 전달 받은 영화의 메타 정보(metaText) 또는 줄거리 텍스트를 벡터로 변환 요청
@@ -32,21 +32,22 @@ class RagEmbeddingClient (
         val webClient = webClientBuilder.baseUrl(openAiConfigProperties.embeddingUrl).build()
 
         return webClient.post()
-            .header("Authorization", "Bearer ${openAiConfigProperties.key}")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer ${openAiConfigProperties.key}")
             .bodyValue(requestBody)
             .retrieve()
             .bodyToMono(OpenAiEmbeddingResponse::class.java)
             .map { response ->
                 // 첫 번째 임베딩 결과를 PostgreSQL vector 형식 문자열로 변환
                 response.data.firstOrNull()?.embedding
-                    ?.joinToString(prefix = "{", postfix = "}") ?: ""
+                    ?.map { it.toFloat() }
+                    ?.toFloatArray() ?: floatArrayOf()
             }
             .onErrorResume { e ->
                 // API 통신 에러 발생 시
                 println("OpenAI Embedding API 통신 오류: ${e.message}")
-                Mono.just("")   //오류 발생 시 빈 문자열 반환
+                Mono.just(floatArrayOf())   //오류 발생 시 빈 문자열 반환
             }
-            .block() ?: ""  // Mono 블로킹 (동기 호출)
+            .block() ?: floatArrayOf()  // Mono 블로킹 (동기 호출)
     }
 }
 

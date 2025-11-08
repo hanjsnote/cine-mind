@@ -65,11 +65,11 @@ class RagIndexingService (
         plotChunk.forEachIndexed { index, plotChunk ->
             // 임베딩 클라이언트를 사용하여 벡터 생성
             // 텍스트가 비어있으면 클라이언트 내부에서 빈 벡터 문자열 반환
-            val metaVector = ragEmbeddingClient.getEmbedding(metaText)
-            val plotVector = ragEmbeddingClient.getEmbedding(plotChunk)
+            val metaVector: FloatArray = ragEmbeddingClient.getEmbedding(metaText)
+            val plotVector: FloatArray = ragEmbeddingClient.getEmbedding(plotChunk)
 
             // 벡터가 유효한지 확인 (빈 문자열이 아닌지)
-            if (metaVector.isNotBlank() || plotVector.isNotBlank()) {
+            if (metaVector.isNotEmpty() || plotVector.isNotEmpty()) {
                 embeddingList.add(
                     MovieEmbeddingDto(
                         id = null,  // 저장 시 자동 생성

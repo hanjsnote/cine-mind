@@ -25,6 +25,35 @@ class MovieEmbeddingDto (
     // 청크 순서
     val chunkOrder: Int
 ){
+    // Array 비교를 위한 equals/hashCode 오버라이딩 (데이터 클래스 기본 동작 방지)
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MovieEmbeddingDto
+
+        if (id != other.id) return false
+        if (movieId != other.movieId) return false
+        if (metaText != other.metaText) return false
+        if (plotText != other.plotText) return false
+        if (!metaVector.contentEquals(other.metaVector)) return false
+        if (!plotVector.contentEquals(other.plotVector)) return false
+        if (chunkOrder != other.chunkOrder) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = id?.hashCode() ?: 0
+        result = 31 * result + movieId.hashCode()
+        result = 31 * result + metaText.hashCode()
+        result = 31 * result + plotText.hashCode()
+        result = 31 * result + metaVector.contentHashCode()
+        result = 31 * result + plotVector.contentHashCode()
+        result = 31 * result + chunkOrder
+        return result
+    }
+
     companion object {
         // MovieEmbedding 엔티티를 DTO로 변환
         fun from(entity: MovieEmbedding): MovieEmbeddingDto {

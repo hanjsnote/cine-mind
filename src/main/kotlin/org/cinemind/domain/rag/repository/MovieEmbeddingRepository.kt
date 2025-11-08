@@ -23,7 +23,7 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
         LIMIT :limit
     """, nativeQuery = true)
     fun findByMetaVectorSimilarity(
-        @Param("queryVector") queryVector: String,
+        @Param("queryVector") queryVector: FloatArray,
         @Param("limit") limit: Int
     ): List<MovieEmbedding>
 
@@ -37,7 +37,7 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
         LIMIT :limit
     """, nativeQuery = true)
     fun findByPlotVectorSimilarity(
-        @Param("queryVector") queryVector: String,
+        @Param("queryVector") queryVector: FloatArray,
         @Param("limit") limit: Int
     ): List<MovieEmbedding>
 
