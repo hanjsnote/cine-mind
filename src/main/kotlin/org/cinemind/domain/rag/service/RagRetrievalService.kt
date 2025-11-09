@@ -24,19 +24,19 @@ class RagRetrievalService (
         }
 
         // 사용자 질문을 임베딩하여 쿼리 벡터를 생성
-        val queryVector = ragEmbeddingClient.getEmbedding(userQuery)
+        val queryVectorFloatArray = ragEmbeddingClient.getEmbedding(userQuery)
 
-        if (queryVector.isBlank()) {
+        if (queryVectorFloatArray.isEmpty()) {
             // 임베딩 실패 시 빈 리스트 반환
             return emptyList()
         }
 
         // 메타 벡터 기반 유사도 검색 수행 (Top-K)
-        val metaResults = movieEmbeddingRepository.findByMetaVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
+        val metaResults = movieEmbeddingRepository.findByMetaVectorSimilarity(queryVectorFloatArray, RETRIEVAL_LIMIT)
 
         // 줄거리 벡터 기반 유사도 검색 수행 (Top-K)
         // 멀티-벡터 전략을 위해 두 가지 검색 결과를 모두 사용
-        val plotResults = movieEmbeddingRepository.findByPlotVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
+        val plotResults = movieEmbeddingRepository.findByPlotVectorSimilarity(queryVectorFloatArray, RETRIEVAL_LIMIT)
 
         // 두 결과를 합치고 중복을 제거하여 최종 컨텍스트를 구성
         val combinedResult = (metaResults + plotResults)
