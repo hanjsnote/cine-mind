@@ -19,7 +19,7 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
     @Query(value = """
         SELECT *
         FROM movie_embeddings
-        ORDER BY meta_vector <-> :queryVector
+        ORDER BY meta_vector <-> CAST(:queryVector AS vector)
         LIMIT :limit
     """, nativeQuery = true)
     fun findByMetaVectorSimilarity(
@@ -33,7 +33,7 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
     @Query(value = """
         SELECT *
         FROM movie_embeddings
-        ORDER BY plot_vector <-> :queryVector
+        ORDER BY plot_vector <-> CAST(:queryVector AS vector)
         LIMIT :limit
     """, nativeQuery = true)
     fun findByPlotVectorSimilarity(
