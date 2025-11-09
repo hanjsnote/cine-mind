@@ -5,12 +5,6 @@ spring:
   application:
     name: cine-mind
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/cinemind_test
-    username: root
-    password: 1234
-    driver-class-name: org.postgresql.Driver
-
   jpa:
     hibernate:
       ddl-auto: create-drop
