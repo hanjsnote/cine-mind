@@ -19,7 +19,7 @@ class OpenAiClient(
 ) {
     // LLM 모델 정보 정의
     private val LLM_MODEL = "gpt-4o-mini"
-    private val API_PATH = "/v1/chat/completions"
+    private val API_PATH = "" // yml에 전체 경로가 정의되어 있으므로 여기선 "" 사용
 
     // LLM에 질문(프롬프트)을 전송하고 답변을 받는다
     // RAG의 Context와 사용자 질문이 합쳐진 형태가 userQuery로 전달
