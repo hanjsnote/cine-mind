@@ -3,6 +3,7 @@ package org.cinemind.domain.rag.service
 import org.cinemind.domain.rag.client.RagEmbeddingClient
 import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
 import org.cinemind.domain.rag.repository.MovieEmbeddingRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 /**
@@ -14,36 +15,44 @@ class RagRetrievalService (
     private val ragEmbeddingClient: RagEmbeddingClient,
     private val movieEmbeddingRepository: MovieEmbeddingRepository
 ) {
+    private val log = LoggerFactory.getLogger(RagRetrievalService::class.java)
     // LLM에 전달할 컨텍스트 청크의 최대 개수
-    private val RETRIEVAL_LIMIT = 5
+    private val RETRIEVAL_LIMIT = 3
 
     // 사용자 질문에 가장 관련성이 높은 영화 임베딩 청크(Context)를 검색한다.\
     fun retrieveRelevantContext(userQuery: String): List<MovieEmbeddingDto> {
-        if (userQuery.isBlank()) {
-            return emptyList()
+        if (userQuery.isBlank()) return emptyList()
+
+        val queryVector = ragEmbeddingClient.getEmbedding(userQuery)
+        if (queryVector.isEmpty()) return emptyList()
+
+        val metaResults = movieEmbeddingRepository.findByMetaVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
+        val plotResults = movieEmbeddingRepository.findByPlotVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
+
+        // 유사도 점수 로그 출력
+        metaResults.forEach {
+            log.info("[META] 영화ID=${it.movieId}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
+        }
+        plotResults.forEach {
+            log.info("[PLOT] 영화ID=${it.movieId}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
         }
 
-        // 사용자 질문을 임베딩하여 쿼리 벡터를 생성
-        val queryVectorFloatArray = ragEmbeddingClient.getEmbedding(userQuery)
-
-        if (queryVectorFloatArray.isEmpty()) {
-            // 임베딩 실패 시 빈 리스트 반환
-            return emptyList()
-        }
-
-        // 메타 벡터 기반 유사도 검색 수행 (Top-K)
-        val metaResults = movieEmbeddingRepository.findByMetaVectorSimilarity(queryVectorFloatArray, RETRIEVAL_LIMIT)
-
-        // 줄거리 벡터 기반 유사도 검색 수행 (Top-K)
-        // 멀티-벡터 전략을 위해 두 가지 검색 결과를 모두 사용
-        val plotResults = movieEmbeddingRepository.findByPlotVectorSimilarity(queryVectorFloatArray, RETRIEVAL_LIMIT)
-
-        // 두 결과를 합치고 중복을 제거하여 최종 컨텍스트를 구성
         val combinedResult = (metaResults + plotResults)
-            .distinctBy { it.id }   // 중복 제거 (같은 청크가 메타/줄거리 검색에 모두 잡힐 수 있음
-            .sortedBy { it.chunkOrder } // 원본 순서대로 정렬
+            .distinctBy { it.id }
+            .sortedBy { it.similarityScore } // 유사도 거리가 짧은 순서로 정렬
+            .take(RETRIEVAL_LIMIT)      // LLM에 전달할 컨텍스트 청크 최대 갯수 제한
 
-        // 최종 결과를 DTO로 변환하여 반환
-        return combinedResult.map { MovieEmbeddingDto.from(it) }
+        // DTO 변환
+        return combinedResult.map {
+            MovieEmbeddingDto(
+                id = it.id,
+                movieId = it.movieId,
+                metaText = it.metaText,
+                plotText = it.plotText,
+                metaVector = floatArrayOf(), // 필요 시 파싱 추가
+                plotVector = floatArrayOf(),
+                chunkOrder = it.chunkOrder
+            )
+        }
     }
 }

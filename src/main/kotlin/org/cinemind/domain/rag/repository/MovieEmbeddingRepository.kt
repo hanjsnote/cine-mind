@@ -17,29 +17,45 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
      * '<->' 연산자는 'L2 distance'를 측정하며, pgvector 확장 기능에서 유사도 검색에 사용
      */
     @Query(value = """
-        SELECT *
-        FROM movie_embeddings
-        ORDER BY meta_vector <-> CAST(:queryVector AS vector)
-        LIMIT :limit
-    """, nativeQuery = true)
+    SELECT 
+        id,
+        movie_id AS movieId,
+        meta_text AS metaText,
+        plot_text AS plotText,
+        meta_vector AS metaVector,
+        plot_vector AS plotVector,
+        chunk_order AS chunkOrder,
+        meta_vector <-> CAST(:queryVector AS vector) AS similarityScore
+    FROM movie_embeddings
+    ORDER BY similarityScore
+    LIMIT :limit
+""", nativeQuery = true)
     fun findByMetaVectorSimilarity(
         @Param("queryVector") queryVector: FloatArray,
         @Param("limit") limit: Int
-    ): List<MovieEmbedding>
+    ): List<MovieEmbeddingProjectionDto>
 
     /**
      * 줄거리 벡터 기반으로 유사도 검색을 수행한다. (가장 높은 K개의 결과를 찾는다.)
      */
     @Query(value = """
-        SELECT *
-        FROM movie_embeddings
-        ORDER BY plot_vector <-> CAST(:queryVector AS vector)
-        LIMIT :limit
-    """, nativeQuery = true)
+    SELECT 
+        id,
+        movie_id AS movieId,
+        meta_text AS metaText,
+        plot_text AS plotText,
+        meta_vector AS metaVector,
+        plot_vector AS plotVector,
+        chunk_order AS chunkOrder,
+        plot_vector <-> CAST(:queryVector AS vector) AS similarityScore
+    FROM movie_embeddings
+    ORDER BY similarityScore
+    LIMIT :limit
+""", nativeQuery = true)
     fun findByPlotVectorSimilarity(
         @Param("queryVector") queryVector: FloatArray,
         @Param("limit") limit: Int
-    ): List<MovieEmbedding>
+    ): List<MovieEmbeddingProjectionDto>
 
 
     /**
