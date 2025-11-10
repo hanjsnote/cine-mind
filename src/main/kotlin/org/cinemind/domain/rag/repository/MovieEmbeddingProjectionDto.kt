@@ -3,6 +3,7 @@ package org.cinemind.domain.rag.repository
 interface MovieEmbeddingProjectionDto {
     val id: Long
     val movieId: Long
+    val movieNm: String
     val metaText: String
     val plotText: String
     val metaVector: Any

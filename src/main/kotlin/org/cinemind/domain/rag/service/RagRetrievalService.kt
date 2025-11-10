@@ -29,24 +29,23 @@ class RagRetrievalService (
         val metaResults = movieEmbeddingRepository.findByMetaVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
         val plotResults = movieEmbeddingRepository.findByPlotVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
 
-        // 유사도 점수 로그 출력
-        metaResults.forEach {
-            log.info("[META] 영화ID=${it.movieId}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
-        }
-        plotResults.forEach {
-            log.info("[PLOT] 영화ID=${it.movieId}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
-        }
-
         val combinedResult = (metaResults + plotResults)
             .distinctBy { it.id }
             .sortedBy { it.similarityScore } // 유사도 거리가 짧은 순서로 정렬
             .take(RETRIEVAL_LIMIT)      // LLM에 전달할 컨텍스트 청크 최대 갯수 제한
+
+        log.info("---- [RAG] 최종 Context 획득 목록 (유사도 순으로 정렬) ----")
+        combinedResult.forEach {
+            val movieNm = it.movieNm ?: "이름 없음"
+            log.info("영화명='${movieNm}', 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
+        }
 
         // DTO 변환
         return combinedResult.map {
             MovieEmbeddingDto(
                 id = it.id,
                 movieId = it.movieId,
+                movieNm = it.movieNm,
                 metaText = it.metaText,
                 plotText = it.plotText,
                 metaVector = floatArrayOf(), // 필요 시 파싱 추가

@@ -10,6 +10,9 @@ class MovieEmbeddingDto (
     // 원본 영화 ID
     val movieId: Long,
 
+    // 영화명
+    val movieNm: String,
+
     // 정형 데이터 텍스트 청크
     val metaText: String,
 
@@ -34,6 +37,7 @@ class MovieEmbeddingDto (
 
         if (id != other.id) return false
         if (movieId != other.movieId) return false
+        if (movieNm != other.movieNm) return false
         if (metaText != other.metaText) return false
         if (plotText != other.plotText) return false
         if (!metaVector.contentEquals(other.metaVector)) return false
@@ -46,6 +50,7 @@ class MovieEmbeddingDto (
     override fun hashCode(): Int {
         var result = id?.hashCode() ?: 0
         result = 31 * result + movieId.hashCode()
+        result = 31 * result + movieNm.hashCode()
         result = 31 * result + metaText.hashCode()
         result = 31 * result + plotText.hashCode()
         result = 31 * result + metaVector.contentHashCode()
@@ -60,6 +65,7 @@ class MovieEmbeddingDto (
             return MovieEmbeddingDto(
                 id = entity.id,
                 movieId = entity.movie.id!!,
+                movieNm = entity.movie.movieNm,
                 metaText = entity.metaText,
                 plotText = entity.plotText,
                 metaVector = entity.metaVector,
