@@ -74,6 +74,7 @@ class RagIndexingService (
                     MovieEmbeddingDto(
                         id = null,  // 저장 시 자동 생성
                         movieId = movieId,
+                        movieNm = dto.movieNm,
                         metaText = metaText,
                         plotText = plotChunk,
                         metaVector = metaVector,

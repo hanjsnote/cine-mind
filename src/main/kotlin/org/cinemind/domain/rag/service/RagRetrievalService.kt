@@ -31,10 +31,10 @@ class RagRetrievalService (
 
         // 유사도 점수 로그 출력
         metaResults.forEach {
-            log.info("[META] 영화ID=${it.movieId}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
+            log.info("[META] 영화명=${it.movieNm}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
         }
         plotResults.forEach {
-            log.info("[PLOT] 영화ID=${it.movieId}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
+            log.info("[PLOT] 영화명=${it.movieNm}, 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
         }
 
         val combinedResult = (metaResults + plotResults)
@@ -47,6 +47,7 @@ class RagRetrievalService (
             MovieEmbeddingDto(
                 id = it.id,
                 movieId = it.movieId,
+                movieNm = it.movieNm,
                 metaText = it.metaText,
                 plotText = it.plotText,
                 metaVector = floatArrayOf(), // 필요 시 파싱 추가

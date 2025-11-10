@@ -18,15 +18,17 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
      */
     @Query(value = """
     SELECT 
-        id,
-        movie_id AS movieId,
-        meta_text AS metaText,
-        plot_text AS plotText,
-        meta_vector AS metaVector,
-        plot_vector AS plotVector,
-        chunk_order AS chunkOrder,
-        meta_vector <-> CAST(:queryVector AS vector) AS similarityScore
-    FROM movie_embeddings
+        e.id,
+        e.movie_id AS movieId,
+        m.movie_nm AS movieNm,
+        e.meta_text AS metaText,
+        e.plot_text AS plotText,
+        e.meta_vector AS metaVector,
+        e.plot_vector AS plotVector,
+        e.chunk_order AS chunkOrder,
+        e.meta_vector <-> CAST(:queryVector AS vector) AS similarityScore
+    FROM movie_embeddings e
+    JOIN movies m ON e.movie_id = m.id
     ORDER BY similarityScore
     LIMIT :limit
 """, nativeQuery = true)
@@ -40,15 +42,17 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
      */
     @Query(value = """
     SELECT 
-        id,
-        movie_id AS movieId,
-        meta_text AS metaText,
-        plot_text AS plotText,
-        meta_vector AS metaVector,
-        plot_vector AS plotVector,
-        chunk_order AS chunkOrder,
-        plot_vector <-> CAST(:queryVector AS vector) AS similarityScore
-    FROM movie_embeddings
+        e.id,
+        e.movie_id AS movieId,
+        m.movie_nm AS movieNm,
+        e.meta_text AS metaText,
+        e.plot_text AS plotText,
+        e.meta_vector AS metaVector,
+        e.plot_vector AS plotVector,
+        e.chunk_order AS chunkOrder,
+        e.plot_vector <-> CAST(:queryVector AS vector) AS similarityScore
+    FROM movie_embeddings e
+    JOIN movies m ON e.movie_id = m.id
     ORDER BY similarityScore
     LIMIT :limit
 """, nativeQuery = true)
@@ -56,7 +60,6 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
         @Param("queryVector") queryVector: FloatArray,
         @Param("limit") limit: Int
     ): List<MovieEmbeddingProjectionDto>
-
 
     /**
      * 특정 movieId에 해당하는 모든 임베딩 청크를 조회
