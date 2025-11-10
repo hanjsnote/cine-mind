@@ -1,0 +1,12 @@
+package org.cinemind.domain.rag.repository
+
+interface MovieEmbeddingProjectionDto {
+    val id: Long
+    val movieId: Long
+    val metaText: String
+    val plotText: String
+    val metaVector: Any
+    val plotVector: Any
+    val chunkOrder: Int
+    val similarityScore: Double
+}
