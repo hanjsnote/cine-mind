@@ -30,9 +30,14 @@ class RagRetrievalService (
         val plotResults = movieEmbeddingRepository.findByPlotVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
 
         val combinedResult = (metaResults + plotResults)
-            .distinctBy { it.id }
+            .groupBy { it.id }  // ID 기준으로 그룹화
+            .values
+            .mapNotNull { group ->
+                // 그룹 내에서 similarityScore가 가장 작은 항목을 선택
+                group.minByOrNull { it.similarityScore }
+            }
             .sortedBy { it.similarityScore } // 유사도 거리가 짧은 순서로 정렬
-            .take(RETRIEVAL_LIMIT)      // LLM에 전달할 컨텍스트 청크 최대 갯수 제한
+            .take(RETRIEVAL_LIMIT)  // LLM에 전달할 컨텍스트 청크 최대 갯수 제한
 
         log.info("---- [RAG] 최종 Context 획득 목록 (유사도 순으로 정렬) ----")
         combinedResult.forEach {
