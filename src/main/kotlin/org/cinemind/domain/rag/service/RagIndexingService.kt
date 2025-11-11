@@ -1,6 +1,8 @@
 package org.cinemind.domain.rag.service
 
 import jakarta.transaction.Transactional
+import org.cinemind.common.exception.CommonErrorCode
+import org.cinemind.common.exception.GlobalException
 import org.cinemind.domain.movie.entity.Movie
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.rag.client.RagEmbeddingClient
@@ -53,7 +55,7 @@ class RagIndexingService (
     // MovieRagDto를 기반으로 meta/plot 텍스트 청크를 생성하고 멀티-벡터 전략 임베딩을 수행하는 로직
     private fun createChunkAndEmbeddings(dto: MovieRagDto): List<MovieEmbeddingDto> {
 
-        val movieId = dto.id ?: throw IllegalStateException("Movie ID cannot be null during indexing. Check if Movie entity has been persisted correctly.")
+        val movieId = dto.id ?: throw GlobalException(CommonErrorCode.RAG_DATA_MISSING)
 
         // 메타데이터 텍스트 생성
         val metaText = createMetaText(dto)
@@ -121,7 +123,7 @@ class RagIndexingService (
     private fun toEntity(dto: MovieEmbeddingDto, movieMap: Map<Long, Movie>): MovieEmbedding {
         // DTO의 movieId를 사용하여 실제 Movie 엔티티 조회
         val movie = movieMap[dto.movieId]
-            ?: throw NoSuchElementException("Movie not found with ID: ${dto.movieId}. 데이터 로딩 순서(Order)를 확인하세요.")
+            ?: throw GlobalException(CommonErrorCode.MOVIE_NOT_FOUND_FOR_RAG)
 
         return MovieEmbedding(
             movie = movie,
