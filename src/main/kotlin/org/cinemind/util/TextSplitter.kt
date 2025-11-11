@@ -1,12 +1,18 @@
 package org.cinemind.util
 
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
+
 /**
  * RAG 시스템을 위한 재귀적 문자 분할(Recursive Character Splitter) 클래스입니다.
  * 이 클래스는 langchain4j-kotlin을 직접 사용할 수 없을 때, 사용합니다.
  * 문맥의 손실을 최소화하기 위해 '의미 있는 구분자'를 우선순위로 사용하여 텍스트를 분할합니다.
  */
+@Component
 class TextSplitter (
+    @Value("\${rag.splitter.chunk-size:100}")
     private val chunkSize: Int,
+    @Value("\${rag.splitter.chunk-overlap:15}")
     private val chunkOverlap: Int,
     // 구분자 우선순위, 1. 문단 (\n\n) -> 2. 문장 끝 (. ? !) -> 3. 공백 ( ) -> 4. 문자열 단위 ('')
     private val separators: List<String> = listOf("\n\n", ". ", "? ", "! ", " ", "")

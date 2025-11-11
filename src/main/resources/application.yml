@@ -37,6 +37,11 @@ openai:
     # Chat Completion API URL 추가 (gpt-4o-mini 모델 사용)
     chat-url: "https://api.openai.com/v1/chat/completions"
 
+rag:
+  splitter:
+    chunk-size: 100
+    chunk-overlap: 15
+
 logging:
   level:
     org.springframework.security: DEBUG
