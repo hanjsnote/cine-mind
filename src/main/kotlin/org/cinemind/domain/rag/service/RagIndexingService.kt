@@ -8,7 +8,7 @@ import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
 import org.cinemind.domain.rag.dto.etc.MovieRagDto
 import org.cinemind.domain.rag.entity.MovieEmbedding
 import org.cinemind.domain.rag.repository.MovieEmbeddingRepository
-import org.cinemind.util.TextSplitter
+import org.cinemind.util.PlotTextSplitter
 import org.springframework.stereotype.Service
 
 @Service
@@ -16,7 +16,7 @@ class RagIndexingService (
     private val movieRepository: MovieRepository, // 원본 데이터 조회
     private val movieEmbeddingRepository: MovieEmbeddingRepository,  // 벡터 DB 저장
     private val ragEmbeddingClient: RagEmbeddingClient,  // 임베딩 클라이언트
-    private val textSplitter: TextSplitter // 줄거리 청크 분할 로직
+    private val plotTextSplitter: PlotTextSplitter // 줄거리 청크 분할 로직
 ) {
     // 전체 영화 데이터를 RAG 벡터 스토어에 인덱싱
     @Transactional
@@ -62,8 +62,8 @@ class RagIndexingService (
         val plotChunk: List<String> = if (dto.plot.isNullOrBlank()) {
             listOf("")
         } else {
-            // TextSplitter를 사용하여 줄거리를 충커 단위로 분할
-            textSplitter.splitText(dto.plot)
+            // TextSplitter를 사용하여 줄거리를 청크 단위로 분할
+            plotTextSplitter.splitText(dto.plot)
         }
 
         val embeddingList = mutableListOf<MovieEmbeddingDto>()
