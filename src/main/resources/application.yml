@@ -39,8 +39,8 @@ openai:
 
 rag:
   splitter:
-    chunk-size: 100
-    chunk-overlap: 15
+    chunk-size: 300
+    chunk-overlap: 50
 
 logging:
   level:

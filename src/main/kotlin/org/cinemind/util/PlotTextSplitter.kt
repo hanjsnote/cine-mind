@@ -9,13 +9,13 @@ import org.springframework.stereotype.Component
  * 문맥의 손실을 최소화하기 위해 '의미 있는 구분자'를 우선순위로 사용하여 텍스트를 분할합니다.
  */
 @Component
-class TextSplitter (
-    @Value("\${rag.splitter.chunk-size:100}")
+class PlotTextSplitter (
+    @Value("\${rag.splitter.chunk-size:300}")
     private val chunkSize: Int,
-    @Value("\${rag.splitter.chunk-overlap:15}")
+    @Value("\${rag.splitter.chunk-overlap:50}")
     private val chunkOverlap: Int,
     // 구분자 우선순위, 1. 문단 (\n\n) -> 2. 문장 끝 (. ? !) -> 3. 공백 ( ) -> 4. 문자열 단위 ('')
-    private val separators: List<String> = listOf("\n\n", ". ", "? ", "! ", " ", "")
+    private val separators: List<String> = listOf("\n\n", ". ", "? ", "! ", ".", " ", "")
 ) {
     // 텍스트를 지정된 크기와 중첩을 사용하여 청크 목록으로 분할
     fun splitText(text: String): List<String> {
@@ -41,14 +41,14 @@ class TextSplitter (
 
         // 2. 사용할 구분자를 찾음
         val separatorIndex = currentSeparators.indexOfFirst { text.contains(it) }
+        val separator = currentSeparators.getOrElse(separatorIndex) { "" }
 
         // 더 이상 효과적인 구분자가 없는 경우 (또는 마지막이 ""인 경우)
-        if (separatorIndex == -1 || currentSeparators[separatorIndex].isEmpty()) {
+        if (separatorIndex == -1 || separator.isEmpty()) {
             // 강제로 문자 단위 분할 시도
             return splitByCharacters(text)
         }
 
-        val separator = currentSeparators[separatorIndex]
         val remainingSeparators = currentSeparators.drop(separatorIndex + 1)
 
         // 3. 텍스트를 구분자로 나눔
@@ -79,8 +79,7 @@ class TextSplitter (
                 segment // 첫 시작
             } else {
                 // 이전 청크의 오버랩 부분과 현재 구분자 + 현재 조각을 합침 (문맥 보존)
-                val overlap = currentChunk.takeLast(chunkOverlap)
-                overlap + separator + segment
+                currentChunk + separator + segment
             }
 
             if (potentialNewChunk.length <= chunkSize) {
@@ -93,8 +92,7 @@ class TextSplitter (
                 }
 
                 // 새 청크는 현재 조각으로 시작하며 이 때 이전 청크의 오버랩을 붙임
-                val overlap = if (currentChunk != null) currentChunk.takeLast(chunkOverlap) else ""
-                currentChunk = overlap + segment
+                currentChunk = segment
             }
         }
         // 7. 마지막 청크 추가
@@ -118,7 +116,7 @@ class TextSplitter (
             // 다음 시작 지점 계산 (오버랩 적용)
             i += chunkSize - chunkOverlap
             // 다음 시작 지점이 텍스트 끝을 초과하지 않도록 보정
-            if (i > text.length - chunkOverlap) break
+            if (i > text.length) break
         }
         return result
     }
