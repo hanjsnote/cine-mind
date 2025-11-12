@@ -26,7 +26,7 @@ class ChatLog (
     @Column(name = "user_id", nullable = false)
     val userId: Long,
 
-    // MessageRole Enum 사용 (USER, SYSTEM)
+    // MessageRole Enum 사용 (USER, ASSISTANT)
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     val role: MessageRole,
@@ -41,7 +41,7 @@ class ChatLog (
 
     // RAG 검색 결과로 사용된 영화 코드 목록
     @Column(name = "related_movie_codes", columnDefinition = "TEXT")
-    val relatedMovieCodes: String? = null
+    val relatedMovieCd: String? = null
 
 ) : BaseEntity() {
     companion object {
@@ -56,7 +56,7 @@ class ChatLog (
                 role = MessageRole.USER,
                 content = safeContent,
                 queryKeywords = null,
-                relatedMovieCodes = null
+                relatedMovieCd = null
             )
         }
         // 챗봇(CHATBOT)의 응답 메시지 인스턴스 생성
@@ -64,7 +64,7 @@ class ChatLog (
             userId: Long,
             content: String,
             queryKeywords: List<String>,
-            relatedMovieCodes: List<String>
+            relatedMovieCds: List<String>
         ): ChatLog {
             val safeContent = content.take(MAX_CONTENT_LENGTH)
 
@@ -73,7 +73,7 @@ class ChatLog (
                   role = MessageRole.ASSISTANT,
                   content = safeContent,
                   queryKeywords = queryKeywords.joinToString(", "), // List -> String 변환 저장
-                  relatedMovieCodes = relatedMovieCodes.joinToString(", ") // List -> String 변환 저장
+                  relatedMovieCd = relatedMovieCds.joinToString(", ") // List -> String 변환 저장
               )
         }
     }

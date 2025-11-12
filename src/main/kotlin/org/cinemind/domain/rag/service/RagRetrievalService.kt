@@ -50,6 +50,7 @@ class RagRetrievalService (
             MovieEmbeddingDto(
                 id = it.id,
                 movieId = it.movieId,
+                movieCd = it.movieCd,
                 movieNm = it.movieNm,
                 metaText = it.metaText,
                 plotText = it.plotText,

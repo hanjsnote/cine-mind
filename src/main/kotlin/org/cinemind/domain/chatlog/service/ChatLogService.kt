@@ -8,4 +8,8 @@ class ChatLogService {
 
         return
     }
+
+    fun saveUserMessage(id: Long, userQuery: String) {}
+    fun chatAssistantMessage(userId: Long, content: String, queryKeywords: List<String>, relatedMovieCodes: List<String>) {}
+
 }

@@ -31,10 +31,11 @@ class RagRetrievalServiceTest @Autowired constructor (
     private val testQueryVector = FloatArray(1536) {0.1f}
 
     // 테스트를 위한 더미 ProjectionDTO 생성
-    private fun createProjectionDto(id: Long, movieNm: String, score: Double): MovieEmbeddingProjectionDto {
+    private fun createProjectionDto(id: Long, movieNm: String, movieCd: String, score: Double): MovieEmbeddingProjectionDto {
         return mockk<MovieEmbeddingProjectionDto> {
             every { this@mockk.id } returns id
             every { this@mockk.movieNm } returns movieNm
+            every { this@mockk.movieCd } returns movieCd
             every { this@mockk.metaText } returns "Meta Text for $movieNm"
             every { this@mockk.plotText } returns "Plot Text for $movieNm"
             every { this@mockk.similarityScore } returns score
@@ -55,14 +56,14 @@ class RagRetrievalServiceTest @Autowired constructor (
 
         // Repository 모킹: 테스트 시나리오에 맞는 결과 반환
         // 청크 ID가 중복 되고 PLOT 점수가 더 좋은 경우
-        val meta10_bad = createProjectionDto(10L, "영화 A", 1.50) // 나쁜 점수 (버려져야 함)
-        val plot10_best = createProjectionDto(10L, "영화 A", 1.10) // 가장 좋은 점수 (선택)
+        val meta10_bad = createProjectionDto(10L, "영화 A", movieCd = "1234ab123",1.50) // 나쁜 점수 (버려져야 함)
+        val plot10_best = createProjectionDto(10L, "영화 A", movieCd = "1234ab124",1.10) // 가장 좋은 점수 (선택)
         // 청크: ID 20
-        val meta20_best = createProjectionDto(20L, "영화 B", 1.20) // 선택되어야 함
+        val meta20_best = createProjectionDto(20L, "영화 B", movieCd = "1234ab125", 1.20) // 선택되어야 함
         // 청크: ID 30
-        val plot30_best = createProjectionDto(30L, "영화 C", 1.30) // 선택되어야 함
+        val plot30_best = createProjectionDto(30L, "영화 C", movieCd = "1234ab126",1.30) // 선택되어야 함
         // 청크: ID 40
-        val meta40_bad = createProjectionDto(40L, "영화 D", 1.60) // 최종 3개 초과로 버려져야 함
+        val meta40_bad = createProjectionDto(40L, "영화 D", movieCd = "1234ab127",1.60) // 최종 3개 초과로 버려져야 함
 
         // META 검색 결과 (3개 LIMIT)
         val mockMetaResults = listOf(meta10_bad, meta20_best, meta40_bad)
@@ -117,6 +118,4 @@ class RagRetrievalServiceTest @Autowired constructor (
         // THEN
         assertEquals(0, resultList.size)
     }
-
-
 }
