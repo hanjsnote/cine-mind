@@ -7,8 +7,11 @@ import org.cinemind.domain.rag.entity.MovieEmbedding
 class MovieEmbeddingDto (
 
     val id: Long?,
-    // 원본 영화 ID
+    // 영화 ID
     val movieId: Long,
+
+    // 영화코드
+    val movieCd: String,
 
     // 영화명
     val movieNm: String,
@@ -28,6 +31,8 @@ class MovieEmbeddingDto (
     // 청크 순서
     val chunkOrder: Int
 ){
+
+
     // Array 비교를 위한 equals/hashCode 오버라이딩 (데이터 클래스 기본 동작 방지)
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -37,6 +42,7 @@ class MovieEmbeddingDto (
 
         if (id != other.id) return false
         if (movieId != other.movieId) return false
+        if (movieCd != other.movieCd) return false
         if (movieNm != other.movieNm) return false
         if (metaText != other.metaText) return false
         if (plotText != other.plotText) return false
@@ -50,6 +56,7 @@ class MovieEmbeddingDto (
     override fun hashCode(): Int {
         var result = id?.hashCode() ?: 0
         result = 31 * result + movieId.hashCode()
+        result = 31 * result + movieCd.hashCode()
         result = 31 * result + movieNm.hashCode()
         result = 31 * result + metaText.hashCode()
         result = 31 * result + plotText.hashCode()
@@ -65,6 +72,7 @@ class MovieEmbeddingDto (
             return MovieEmbeddingDto(
                 id = entity.id,
                 movieId = entity.movie.id!!,
+                movieCd = entity.movie.movieCd,
                 movieNm = entity.movie.movieNm,
                 metaText = entity.metaText,
                 plotText = entity.plotText,
