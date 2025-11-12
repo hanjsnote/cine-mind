@@ -1,7 +1,10 @@
 package org.cinemind.domain.chatbot.service
 
+import org.cinemind.common.dto.AuthUser
 import org.cinemind.domain.chatbot.client.OpenAiClient
 import org.cinemind.domain.chatbot.dto.response.ChatResponse
+import org.cinemind.domain.chatlog.repository.ChatLogRepository
+import org.cinemind.domain.chatlog.service.ChatLogService
 import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
 import org.springframework.stereotype.Service
@@ -17,7 +20,8 @@ import reactor.core.publisher.Mono
 @Service
 class ChatService (
     private val openAiClient: OpenAiClient,
-    private val ragRetrievalService: RagRetrievalService
+    private val ragRetrievalService: RagRetrievalService,
+    private val chatLogService: ChatLogService
 //    private val chatCacheService: ChatCacheService    // 캐싱은 나중에 추가
 ){
     // 챗봇 페르소나 및 답변 규칙 정의
@@ -33,7 +37,11 @@ class ChatService (
 
     // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
     // userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
-    fun getLLMResponse(userQuery: String): Mono<ChatResponse> {
+    fun getLLMResponse( authUser: AuthUser, userQuery: String): Mono<ChatResponse> {
+
+        // 대화 내역 저장 LLM 호출 전에 사용자 메시지를 먼저 저장
+        chatLogService.saveUserMessage(authUser.id, userQuery)
+
         // (RAG 1단계 - 검색) 사용자 질문을 벡터화하여 가장 관련성이 높은 Context 청크를 검색
         val contextChunks = ragRetrievalService.retrieveRelevantContext(userQuery)
 
@@ -44,17 +52,29 @@ class ChatService (
         val llmResponseMono = openAiClient.getChatCompletion(SYSTEM_INSTRUCTION, fullPrompt)
 
         // LLM 응답이 오면 이를 검색된 Context와 함께 RagResponseDto로 매핑하여 반환
-        return llmResponseMono.map { answer ->
-            // 검색 근거로 사용된 텍스트 청크를 리스트로 구성
-            val sources = contextChunks.map {
-                // 메타 정보와 줄거리를 구분하여 근거로 사용 (디버깅용)
-                "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
+        return llmResponseMono
+            .map { answer ->
+                // 검색 근거로 사용된 텍스트 청크를 리스트로 구성
+                val sources = contextChunks.map {
+                    // 메타 정보와 줄거리를 구분하여 근거로 사용 (디버깅용)
+                    "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
+                }
+                ChatResponse(
+                    answer = answer,
+                    sources = sources
+                )
             }
-            ChatResponse(
-                answer = answer,
-                sources = sources
-            )
-        }
+            .doOnSuccess { chatResponse ->
+                // 챗봇 응답 저장 Mono의 결과가 성공적으로 생성 되었을때 DB 저장
+                val relatedMovieCodes = contextChunks.map { it.movieCd }
+
+                chatLogService.chatAssistantMessage(
+                    userId = authUser.id,
+                    content = chatResponse.answer,
+                    queryKeywords = listOf(),
+                    relatedMovieCodes = relatedMovieCodes
+                )
+            }
     }
 
     // LLM에게 전달할 최종 프롬프트를 생성
