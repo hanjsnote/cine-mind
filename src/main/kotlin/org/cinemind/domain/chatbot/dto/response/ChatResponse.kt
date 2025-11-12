@@ -7,6 +7,6 @@ class ChatResponse (
     // LLM이 생성한 최종 답변
     val answer: String,
 
-    // 답변의 근고로 사용된 원본 텍스트 청크 목록 (디버깅용)
+    // 답변의 근거로 사용된 원본 텍스트 청크 목록 (디버깅용)
     val sources: List<String>
 )
