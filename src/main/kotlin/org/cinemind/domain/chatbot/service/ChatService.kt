@@ -37,10 +37,10 @@ class ChatService (
 
     // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
     // userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
-    fun getLLMResponse( authUser: AuthUser, userQuery: String): Mono<ChatResponse> {
+    fun getLLMResponse( authUser: AuthUser?, userQuery: String): Mono<ChatResponse> {
 
         // 대화 내역 저장 LLM 호출 전에 사용자 메시지를 먼저 저장
-        chatLogService.saveUserMessage(authUser.id, userQuery)
+        authUser?.let { chatLogService.saveUserMessage(it.id, userQuery) }
 
         // (RAG 1단계 - 검색) 사용자 질문을 벡터화하여 가장 관련성이 높은 Context 청크를 검색
         val contextChunks = ragRetrievalService.retrieveRelevantContext(userQuery)
@@ -66,14 +66,16 @@ class ChatService (
             }
             .doOnSuccess { chatResponse ->
                 // 챗봇 응답 저장 Mono의 결과가 성공적으로 생성 되었을때 DB 저장
-                val relatedMovieCodes = contextChunks.map { it.movieCd }
+                val relatedMovieCds = contextChunks.map { it.movieCd }
 
-                chatLogService.chatAssistantMessage(
-                    userId = authUser.id,
-                    content = chatResponse.answer,
-                    queryKeywords = listOf(),
-                    relatedMovieCodes = relatedMovieCodes
-                )
+                authUser?.let {
+                    chatLogService.chatAssistantMessage(
+                        userId = it.id,
+                        content = chatResponse.answer,
+                        queryKeywords = listOf(),
+                        relatedMovieCds = relatedMovieCds
+                    )
+                }
             }
     }
 

@@ -4,4 +4,5 @@ import org.cinemind.domain.chatlog.entity.ChatLog
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface ChatLogRepository : JpaRepository<ChatLog, Long> {
+    fun findByUserIdOrderByCreatedAtAsc(userId: Long): List<ChatLog>
 }
