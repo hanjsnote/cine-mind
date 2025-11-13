@@ -50,8 +50,8 @@ class RagRetrievalService (
             MovieEmbeddingDto(
                 id = it.id,
                 movieId = it.movieId,
-                movieCd = it.movieCd,
-                movieNm = it.movieNm,
+                movieCd = (it.movieCd as String?) ?: "",
+                movieNm = (it.movieNm as String?) ?: "제목 없음",
                 metaText = it.metaText,
                 plotText = it.plotText,
                 metaVector = floatArrayOf(), // 필요 시 파싱 추가
