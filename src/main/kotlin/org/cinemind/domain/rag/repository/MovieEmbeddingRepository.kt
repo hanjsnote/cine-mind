@@ -20,6 +20,7 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
     SELECT 
         e.id,
         e.movie_id AS movieId,
+        m.movie_cd AS movieCd,
         m.movie_nm AS movieNm,
         e.meta_text AS metaText,
         e.plot_text AS plotText,
@@ -44,6 +45,7 @@ interface MovieEmbeddingRepository: JpaRepository<MovieEmbedding, Long> {
     SELECT 
         e.id,
         e.movie_id AS movieId,
+        m.movie_cd AS movieCd,
         m.movie_nm AS movieNm,
         e.meta_text AS metaText,
         e.plot_text AS plotText,
