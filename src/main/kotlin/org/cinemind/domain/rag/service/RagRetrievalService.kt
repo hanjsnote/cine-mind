@@ -41,7 +41,7 @@ class RagRetrievalService (
 
         log.info("---- [RAG] 최종 Context 획득 목록 (유사도 순으로 정렬) ----")
         combinedResult.forEach {
-            val movieNm = it.movieNm ?: "이름 없음"
+            val movieNm = it.movieNm ?: "제목 없음"
             log.info("영화명='${movieNm}', 청크ID=${it.id}, 거리=${"%.6f".format(it.similarityScore)}")
         }
 
@@ -50,8 +50,8 @@ class RagRetrievalService (
             MovieEmbeddingDto(
                 id = it.id,
                 movieId = it.movieId,
-                movieCd = (it.movieCd as String?) ?: "",
-                movieNm = (it.movieNm as String?) ?: "제목 없음",
+                movieCd = it.movieCd,
+                movieNm = it.movieNm ?: "제목 없음",
                 metaText = it.metaText,
                 plotText = it.plotText,
                 metaVector = floatArrayOf(), // 필요 시 파싱 추가

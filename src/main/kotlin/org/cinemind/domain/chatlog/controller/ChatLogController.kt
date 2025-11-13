@@ -17,6 +17,6 @@ class ChatLogController (
     @GetMapping
     fun getChatLogs(@AuthenticationPrincipal authUser: AuthUser): List<ChatLogResponse> {
         // authUser.id를 사용하여 해당 사용자의 기록만 서비스 계층에서 조회
-        return chatLogService.getLogsByUserId(authUser.id)
+        return chatLogService.getLogs(authUser.id)
     }
 }

@@ -17,9 +17,19 @@ class ChatLogService (
     private val chatLogRepository: ChatLogRepository,
 ){
     // 특정 사용자 ID의 모든 대화 내역을 시간 순으로 조회
-    fun getLogsByUserId(userId: Long): List<ChatLogResponse> {
+    fun getLogs(userId: Long): List<ChatLogResponse> {
+        // DB에서 ChatLog 엔티티 리스트를 조회
+        val chatLogs = chatLogRepository.findByUserIdOrderByCreatedAtAsc(userId)
 
-        return TODO("반환 값을 제공하세요")
+        // 결과를 담을 빈 List 선언
+        val responseList = mutableListOf<ChatLogResponse>()
+
+        // for 루프를 돌면서 각 엔티티를 DTO로 반환하여 리스트에 추가
+        for (log in chatLogs) {
+            val response = ChatLogResponse.from(log)
+            responseList.add(response)
+        }
+        return responseList
     }
 
     // 사용자(USER) 메시지를 DB에 저장
