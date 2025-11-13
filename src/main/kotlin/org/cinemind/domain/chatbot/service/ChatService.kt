@@ -66,14 +66,14 @@ class ChatService (
             }
             .doOnSuccess { chatResponse ->
                 // 챗봇 응답 저장 Mono의 결과가 성공적으로 생성 되었을때 DB 저장
-                val relatedMovieCodes = contextChunks.map { it.movieCd }
+                val relatedMovieCds = contextChunks.map { it.movieCd }
 
                 authUser?.let {
                     chatLogService.chatAssistantMessage(
                         userId = it.id,
                         content = chatResponse.answer,
                         queryKeywords = listOf(),
-                        relatedMovieCodes = relatedMovieCodes
+                        relatedMovieCds = relatedMovieCds
                     )
                 }
             }
