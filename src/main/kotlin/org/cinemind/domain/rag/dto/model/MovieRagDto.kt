@@ -1,6 +1,5 @@
-package org.cinemind.domain.rag.dto.etc
+package org.cinemind.domain.rag.dto.model
 
-import org.cinemind.domain.movie.entity.Company
 import org.cinemind.domain.movie.entity.Movie
 import org.cinemind.domain.movie.enums.PeopleRole
 

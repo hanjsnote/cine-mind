@@ -6,8 +6,8 @@ import org.cinemind.common.exception.GlobalException
 import org.cinemind.domain.movie.entity.Movie
 import org.cinemind.domain.movie.repository.MovieRepository
 import org.cinemind.domain.rag.client.RagEmbeddingClient
-import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
-import org.cinemind.domain.rag.dto.etc.MovieRagDto
+import org.cinemind.domain.rag.dto.model.MovieEmbeddingDto
+import org.cinemind.domain.rag.dto.model.MovieRagDto
 import org.cinemind.domain.rag.entity.MovieEmbedding
 import org.cinemind.domain.rag.repository.MovieEmbeddingRepository
 import org.cinemind.util.PlotTextSplitter

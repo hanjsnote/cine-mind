@@ -1,6 +1,6 @@
 package org.cinemind.config.jwt
 
-import org.cinemind.common.dto.AuthUser
+import org.cinemind.common.dto.authuser.AuthUser
 import org.springframework.security.authentication.AbstractAuthenticationToken
 import org.springframework.security.core.GrantedAuthority
 

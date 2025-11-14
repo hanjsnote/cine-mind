@@ -10,7 +10,7 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.ServletException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.cinemind.common.dto.AuthUser
+import org.cinemind.common.dto.authuser.AuthUser
 import org.cinemind.domain.user.enums.UserRole
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus

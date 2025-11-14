@@ -1,6 +1,6 @@
 package org.cinemind.domain.user.service
 
-import org.cinemind.common.dto.AuthUser
+import org.cinemind.common.dto.authuser.AuthUser
 import org.cinemind.domain.user.dto.response.FindAllResponse
 import org.cinemind.domain.user.repository.UserRepository
 import org.springframework.data.domain.Page

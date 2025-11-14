@@ -1,4 +1,4 @@
-package org.cinemind.domain.rag.dto.etc
+package org.cinemind.domain.rag.dto.model
 
 import org.cinemind.domain.rag.entity.MovieEmbedding
 

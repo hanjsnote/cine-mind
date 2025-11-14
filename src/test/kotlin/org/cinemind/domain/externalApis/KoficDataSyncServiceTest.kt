@@ -10,7 +10,7 @@ import org.cinemind.domain.chatbot.controller.ChatController
 import org.cinemind.domain.chatbot.service.ChatService
 import org.cinemind.domain.externalApis.client.KmdbApiClient
 import org.cinemind.domain.externalApis.client.KoficApiClient
-import org.cinemind.domain.externalApis.dto.etc.MatchDetail
+import org.cinemind.domain.externalApis.dto.model.MatchDetail
 import org.cinemind.domain.externalApis.dto.response.ActorKofic
 import org.cinemind.domain.externalApis.dto.response.AuditKofic
 import org.cinemind.domain.externalApis.dto.response.CompanyKofic

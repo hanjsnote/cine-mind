@@ -1,11 +1,11 @@
 package org.cinemind.domain.chatbot.service
 
-import org.cinemind.common.dto.AuthUser
+import org.cinemind.common.dto.authuser.AuthUser
 import org.cinemind.domain.chatbot.client.OpenAiClient
 import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
 import org.cinemind.domain.chatbot.dto.response.LlmStructuredResponse
 import org.cinemind.domain.chatlog.service.ChatLogService
-import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
+import org.cinemind.domain.rag.dto.model.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

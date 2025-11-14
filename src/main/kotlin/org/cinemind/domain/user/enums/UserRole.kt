@@ -1,6 +1,6 @@
 package org.cinemind.domain.user.enums
 
-import org.cinemind.common.dto.AuthUser
+import org.cinemind.common.dto.authuser.AuthUser
 import java.util.Arrays
 
 enum class UserRole(val userRole: String){
