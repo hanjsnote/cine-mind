@@ -7,6 +7,7 @@ import org.cinemind.domain.chatbot.dto.response.LlmStructuredResponse
 import org.cinemind.domain.chatlog.service.ChatLogService
 import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
@@ -24,6 +25,8 @@ class ChatService (
     private val chatLogService: ChatLogService
 //    private val chatCacheService: ChatCacheService    // 캐싱은 나중에 추가
 ){
+    private val log = LoggerFactory.getLogger(javaClass)
+
     // 챗봇 페르소나 및 답변 규칙 정의
     private val SYSTEM_INSTRUCTION = """
         당신은 '시네마인드'의 전문 영화 추천 및 정보 제공 챗봇입니다.
@@ -49,6 +52,9 @@ class ChatService (
 
         // 대화 내역 저장 LLM 호출 전에 사용자 메시지를 먼저 저장
         authUser?.let { chatLogService.saveUserMessage(it.id, userQuery) }
+
+        // 요청 시작 시간 측정
+        val startTime = System.currentTimeMillis()
 
         // (RAG 1단계 - 검색) 사용자 질문을 벡터화하여 가장 관련성이 높은 Context 청크를 검색
         val contextChunks = ragRetrievalService.retrieveRelevantContext(userQuery)
@@ -94,9 +100,15 @@ class ChatService (
             }
             //최종적으로 반환할 ChatLLMResponse만 추출
             .map { (chatResponse, _) -> chatResponse }
+
+            // 사용자 질문 요청 ~ 최종 응답 객체 생성까지 걸리는 시간
+            .doOnTerminate {
+                val elapsed = System.currentTimeMillis() - startTime
+                log.info("사용자 질문 요청 - 최종 응답 객체 생성까지 걸리는 시간 : {}ms", elapsed)
+            }
     }
 
-    // LLM에게 전달할 최종 프롬프트를 생성
+    // LLM에게 전달할 최종 프롬프트를 생성Å
     // 시스템 지시문 + [CONTEXT] + 사용자 질문의 구조를 가짐
     private fun createFullPrompt(userQuery: String, contextChunks: List<MovieEmbeddingDto>): String{
         // contextChunks 없으면 빈 문자열을, 있으면 형식화된 영화 정보를 포함
