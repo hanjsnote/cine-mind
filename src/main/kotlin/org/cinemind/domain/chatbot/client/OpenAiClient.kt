@@ -1,5 +1,6 @@
 package org.cinemind.domain.chatbot.client
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.cinemind.config.openai.OpenAiConfigProperties
 import org.cinemind.domain.chatbot.dto.message.Message
 import org.cinemind.domain.chatbot.dto.request.ChatRequest
@@ -15,7 +16,9 @@ import reactor.core.publisher.Mono
 @Component
 class OpenAiClient(
     private val webClientBuilder: WebClient.Builder,
-    private val openAiConfigProperties: OpenAiConfigProperties
+    private val openAiConfigProperties: OpenAiConfigProperties,
+    // JSON 파싱을 위해 ObjectMapper 주입
+    private val objectMapper: ObjectMapper
 ) {
     // LLM 모델 정보 정의
     private val LLM_MODEL = "gpt-4o-mini"
@@ -23,7 +26,8 @@ class OpenAiClient(
 
     // LLM에 질문(프롬프트)을 전송하고 답변을 받는다
     // RAG의 Context와 사용자 질문이 합쳐진 형태가 userQuery로 전달
-    fun getChatCompletion(systemInstruction: String, userQuery: String): Mono<String> {
+    fun <T : Any>getChatCompletion(systemInstruction: String, userQuery: String, responseClass: Class<T>): Mono<T> {
+        // ChatRequest를 구성할 때 LLM이 JSON을 출력하도록 강제
         val request = ChatRequest(
             model = LLM_MODEL,
             messages = listOf(
@@ -43,13 +47,16 @@ class OpenAiClient(
             .retrieve()
             .bodyToMono<OpenAiChatCompletion>()
             .map { response ->
-                // 첫 번째 선택지 (choices[0]의 content를 반환
-                response.choices.firstOrNull()?.message?.content ?: "응답을 받을 수 없습니다."
+                // 첫 번째 선택지 (choices[0]의 content를 반환)
+                val jsonString = response.choices.firstOrNull()?.message?.content
+                    ?: throw RuntimeException("LLM 응답에서 JSON 문자열을 찾을 수 없습니다.")
+
+                objectMapper.readValue(jsonString, responseClass)
             }
             .onErrorResume { e ->
                 // API 통신 에러 발생 시
-                println("OpenAI API 통신 오류: ${e.message}")
-                Mono.just("API 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
+                System.err.println("OpenAI API 통신 또는 JSON 파싱 오류: ${e.message}")
+                Mono.error(RuntimeException("LLM 응답 처리 중 오류가 발생했습니다.", e))
             }
     }
 }

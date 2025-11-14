@@ -2,8 +2,8 @@ package org.cinemind.domain.chatbot.service
 
 import org.cinemind.common.dto.AuthUser
 import org.cinemind.domain.chatbot.client.OpenAiClient
-import org.cinemind.domain.chatbot.dto.response.ChatResponse
-import org.cinemind.domain.chatlog.repository.ChatLogRepository
+import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
+import org.cinemind.domain.chatbot.dto.response.LlmStructuredResponse
 import org.cinemind.domain.chatlog.service.ChatLogService
 import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
@@ -28,7 +28,15 @@ class ChatService (
     private val SYSTEM_INSTRUCTION = """
         당신은 '시네마인드'의 전문 영화 추천 및 정보 제공 챗봇입니다.
         사용자의 질문에 대해 항상 친절하고 정확하게 답변해야 합니다.
-
+        
+        **[출력 형식 규칙]**
+        **당신은 어떠한 추가 설명 없이 오직 JSON 형식의 객체 하나만 출력해야 합니다.**
+        JSON은 반드시 다음 스키마를 따라야 하며 'queryKeywords' 필드에는 사용자 질문에서 추출된 3~5개의 핵심 키워드를 포함해야 합니다.
+        {
+          "answer": "문맥과 사용자 질문에 기반한 최종 답변 텍스트",
+          "queryKeywords": ["사용자 질문에서 추출된 핵심 키워드 1", "핵심 키워드 2", "핵심 키워드 3"]
+        }    
+        
         1. 답변시에는 제공된 [CONTEXT] 정보를 최우선으로 활용해야 합니다.
         2. 만약 [CONTEXT]가 "제공할 Context 정보가 없습니다."로 비어 있다면, **당신의 기본 지식이나 일반 상식을 일절 활용하지 말고**, 오직 다음 문구만 출력해야 합니다: "제가 가진 영화 정보에는 해당 내용이 없습니다." 이외의 **어떠한 부가 설명도 절대 금지**합니다.
         3. [CONTEXT] 정보가 있다면, 답변은 사용자가 영화에 흥미를 느낄 수 있도록 매력적이고 간결하게 작성해주세요.
@@ -37,7 +45,7 @@ class ChatService (
 
     // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
     // userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
-    fun getLLMResponse( authUser: AuthUser?, userQuery: String): Mono<ChatResponse> {
+    fun getLLMResponse( authUser: AuthUser?, userQuery: String): Mono<ChatLLMResponse> {
 
         // 대화 내역 저장 LLM 호출 전에 사용자 메시지를 먼저 저장
         authUser?.let { chatLogService.saveUserMessage(it.id, userQuery) }
@@ -48,23 +56,30 @@ class ChatService (
         // Context 기반으로 최종 프롬프트(userQuery) 생성
         val fullPrompt = createFullPrompt(userQuery, contextChunks)
 
-        // (LLM 호출) 최종 프롬프트를 LLM 클라이언트에 전달하여 응답을 받는다.
-        val llmResponseMono = openAiClient.getChatCompletion(SYSTEM_INSTRUCTION, fullPrompt)
+        // (LLM 호출) 최종 프롬프트와 JSON 출력 지침을 클라이언트에 전달하여 StructuredResponse를 받는다
+        val structuredResponseMono: Mono<LlmStructuredResponse> = openAiClient.getChatCompletion(
+            SYSTEM_INSTRUCTION,
+            fullPrompt,
+            LlmStructuredResponse::class.java   // JSON 응답을 이 내부 DTO로 파싱하도록 지시
+        )
 
-        // LLM 응답이 오면 이를 검색된 Context와 함께 RagResponseDto로 매핑하여 반환
-        return llmResponseMono
-            .map { answer ->
+        // LLM 응답을 최종 DTO와 로깅 키워드(Pair)로 변환
+        return structuredResponseMono
+            .map { structuredResponse ->
                 // 검색 근거로 사용된 텍스트 청크를 리스트로 구성
                 val sources = contextChunks.map {
                     // 메타 정보와 줄거리를 구분하여 근거로 사용 (디버깅용)
                     "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
                 }
-                ChatResponse(
-                    answer = answer,
+                // 최종 사용자에게 반환될 응답 DTO
+                val chatResponse = ChatLLMResponse(
+                    answer = structuredResponse.answer,
                     sources = sources
                 )
+                // 반환할 응답과 로깅에 필요한 키워드를 Pair로 묶어 다음 체인에 전달
+                Pair(chatResponse, structuredResponse.queryKeywords)
             }
-            .doOnSuccess { chatResponse ->
+            .doOnSuccess { (chatResponse, queryKeywords) ->
                 // 챗봇 응답 저장 Mono의 결과가 성공적으로 생성 되었을때 DB 저장
                 val relatedMovieCds = contextChunks.map { it.movieCd }
 
@@ -72,11 +87,13 @@ class ChatService (
                     chatLogService.chatAssistantMessage(
                         userId = it.id,
                         content = chatResponse.answer,
-                        queryKeywords = listOf(),
+                        queryKeywords = queryKeywords,
                         relatedMovieCds = relatedMovieCds
                     )
                 }
             }
+            //최종적으로 반환할 ChatLLMResponse만 추출
+            .map { (chatResponse, _) -> chatResponse }
     }
 
     // LLM에게 전달할 최종 프롬프트를 생성

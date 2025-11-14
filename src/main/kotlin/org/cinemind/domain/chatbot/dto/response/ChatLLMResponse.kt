@@ -3,7 +3,7 @@ package org.cinemind.domain.chatbot.dto.response
 /**
  * 챗봇의 최종 응답을 사용자에게 전달하기 위한 DTO
  */
-class ChatResponse (
+class ChatLLMResponse (
     // LLM이 생성한 최종 답변
     val answer: String,
 
