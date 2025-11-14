@@ -1,15 +1,10 @@
 package org.cinemind.domain.chatlog.service
 
-import org.cinemind.common.exception.CommonErrorCode
-import org.cinemind.common.exception.GlobalException
 import org.springframework.transaction.annotation.Transactional
-import org.cinemind.domain.chatbot.dto.response.ChatResponse
-import org.cinemind.domain.chatbot.enum.MessageRole
 import org.cinemind.domain.chatlog.dto.response.ChatLogResponse
 import org.cinemind.domain.chatlog.entity.ChatLog
 import org.cinemind.domain.chatlog.repository.ChatLogRepository
 import org.springframework.stereotype.Service
-import java.time.LocalDateTime
 
 @Service
 @Transactional(readOnly = true)

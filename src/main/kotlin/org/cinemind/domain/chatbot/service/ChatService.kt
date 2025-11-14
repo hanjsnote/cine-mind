@@ -2,8 +2,7 @@ package org.cinemind.domain.chatbot.service
 
 import org.cinemind.common.dto.AuthUser
 import org.cinemind.domain.chatbot.client.OpenAiClient
-import org.cinemind.domain.chatbot.dto.response.ChatResponse
-import org.cinemind.domain.chatlog.repository.ChatLogRepository
+import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
 import org.cinemind.domain.chatlog.service.ChatLogService
 import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
@@ -37,7 +36,7 @@ class ChatService (
 
     // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
     // userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
-    fun getLLMResponse( authUser: AuthUser?, userQuery: String): Mono<ChatResponse> {
+    fun getLLMResponse( authUser: AuthUser?, userQuery: String): Mono<ChatLLMResponse> {
 
         // 대화 내역 저장 LLM 호출 전에 사용자 메시지를 먼저 저장
         authUser?.let { chatLogService.saveUserMessage(it.id, userQuery) }
@@ -59,7 +58,7 @@ class ChatService (
                     // 메타 정보와 줄거리를 구분하여 근거로 사용 (디버깅용)
                     "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
                 }
-                ChatResponse(
+                ChatLLMResponse(
                     answer = answer,
                     sources = sources
                 )

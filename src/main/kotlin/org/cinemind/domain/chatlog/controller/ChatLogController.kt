@@ -1,7 +1,6 @@
 package org.cinemind.domain.chatlog.controller
 
 import org.cinemind.common.dto.AuthUser
-import org.cinemind.domain.chatbot.dto.response.ChatResponse
 import org.cinemind.domain.chatlog.dto.response.ChatLogResponse
 import org.cinemind.domain.chatlog.service.ChatLogService
 import org.springframework.security.core.annotation.AuthenticationPrincipal
