@@ -1,6 +1,6 @@
 package org.cinemind.domain.externalApis.service
 
-import org.cinemind.domain.externalApis.dto.etc.MatchDetail
+import org.cinemind.domain.externalApis.dto.model.MatchDetail
 import org.cinemind.domain.externalApis.dto.response.KmdbMovieResponse
 import org.cinemind.domain.externalApis.dto.response.KmdbResult
 import org.springframework.stereotype.Component

@@ -1,4 +1,4 @@
-package org.cinemind.domain.externalApis.dto.etc
+package org.cinemind.domain.externalApis.dto.model
 
 import org.cinemind.domain.externalApis.dto.response.KmdbResult
 

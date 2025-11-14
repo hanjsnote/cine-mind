@@ -1,7 +1,7 @@
 package org.cinemind.domain.rag.service
 
 import org.cinemind.domain.rag.client.RagEmbeddingClient
-import org.cinemind.domain.rag.dto.etc.MovieEmbeddingDto
+import org.cinemind.domain.rag.dto.model.MovieEmbeddingDto
 import org.cinemind.domain.rag.repository.MovieEmbeddingRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

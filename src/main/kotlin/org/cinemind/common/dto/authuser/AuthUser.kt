@@ -1,4 +1,4 @@
-package org.cinemind.common.dto
+package org.cinemind.common.dto.authuser
 
 import org.cinemind.domain.user.enums.UserRole
 import org.springframework.security.core.GrantedAuthority
