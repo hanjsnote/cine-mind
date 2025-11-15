@@ -30,7 +30,7 @@ class RagRetrievalService (
         val plotResults = movieEmbeddingRepository.findByPlotVectorSimilarity(queryVector, RETRIEVAL_LIMIT)
 
         val combinedResult = (metaResults + plotResults)
-            .groupBy { it.id }  // ID 기준으로 그룹화
+            .groupBy { it.movieId }  // movieID 기준으로 그룹화
             .values
             .mapNotNull { group ->
                 // 그룹 내에서 similarityScore가 가장 작은 항목을 선택
