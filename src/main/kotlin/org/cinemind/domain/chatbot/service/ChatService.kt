@@ -4,6 +4,7 @@ import org.cinemind.common.dto.authuser.AuthUser
 import org.cinemind.domain.chatbot.client.OpenAiClient
 import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
 import org.cinemind.domain.chatbot.dto.response.LlmStructuredResponse
+import org.cinemind.domain.chatlog.entity.ChatLog // <-- ChatLog 엔티티 임포트
 import org.cinemind.domain.chatlog.service.ChatLogService
 import org.cinemind.domain.rag.dto.model.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
@@ -13,10 +14,11 @@ import reactor.core.publisher.Mono
 
 /**
  * 챗봇의 핵심 비즈니스 로직(RAG 오케스트레이션)을 담당하는 서비스
- * 이 서비스는 다음 3단계를 통ㅎ바하여 실행 (R -> A -> G)
- * 1. Retrieval (검색): RagRetrievalService를 통해 Context 확보
- * 2. Augmentation (증강): 확보된 Context로 프롬프트 증강
- * 3. Generation (생성): OpenAiClient를 통해 답변 생성
+ * 이 서비스는 다음 단계를 통해 실행: (Memory -> R -> A -> G)
+ * 1. Memory (메모리): ChatLogService를 통해 과거 대화 내역 확보 (대화 연속성)
+ * 2. Retrieval (검색): RagRetrievalService를 통해 Context 확보 (사실적 근거)
+ * 3. Augmentation (증강): 확보된 Memory와 Context로 프롬프트 증강
+ * 4. Generation (생성): OpenAiClient를 통해 답변 생성
  * */
 @Service
 class ChatService (
@@ -27,10 +29,15 @@ class ChatService (
 ){
     private val log = LoggerFactory.getLogger(javaClass)
 
+
     // 챗봇 페르소나 및 답변 규칙 정의
     private val SYSTEM_INSTRUCTION = """
         당신은 '시네마인드'의 전문 영화 추천 및 정보 제공 챗봇입니다.
         사용자의 질문에 대해 항상 친절하고 정확하게 답변해야 합니다.
+        
+        **[새로운 규칙: 대화 연속성]**
+        1. 제공된 [CONVERSATION HISTORY]를 활용하여 **문맥과 대화 연속성**을 유지하고 답변해야 합니다.
+        2. 현재 질문이 이전 대화의 연장선상에 있다면, 이전 대화의 정보를 활용하여 현재 질문을 해석하고 답변하세요.
         
         **[출력 형식 규칙]**
         **당신은 어떠한 추가 설명 없이 오직 JSON 형식의 객체 하나만 출력해야 합니다.**
@@ -52,46 +59,58 @@ class ChatService (
     """.trimIndent()
 
     // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
-    // userQuery 사용자 질문, LLM이 생성한 응답 텍스트를 리턴
     fun getLLMResponse( authUser: AuthUser?, userQuery: String): Mono<ChatLLMResponse> {
+        val userId = authUser?.id
 
-        // 대화 내역 저장 LLM 호출 전에 사용자 메시지를 먼저 저장
+        // 대화 내역 저장: LLM 호출 전에 사용자 메시지를 먼저 저장
         authUser?.let { chatLogService.saveUserMessage(it.id, userQuery) }
 
         // 요청 시작 시간 측정
         val startTime = System.currentTimeMillis()
 
-        // (RAG 1단계 - 검색) 사용자 질문을 벡터화하여 가장 관련성이 높은 Context 청크를 검색
-        val contextChunks = ragRetrievalService.retrieveRelevantContext(userQuery)
+        // 1. (대화 메모리) 과거 대화 내역을 비동기적으로 조회
+        // Mono.fromCallable을 사용하여 동기(blocking) DB 조회를 비동기 체인에 통합
+        val historyMono: Mono<List<ChatLog>> = if (userId != null) {
+            Mono.fromCallable {
+                chatLogService.getRecentHistory(userId)
+            }
+        } else {
+            Mono.just(emptyList()) // 비로그인 사용자
+        }
 
-        // Context 기반으로 최종 프롬프트(userQuery) 생성
-        val fullPrompt = createFullPrompt(userQuery, contextChunks)
+        return historyMono
+            .flatMap { historyList ->
+                // 2. (RAG 1단계 - 검색)
+                // Mono.fromCallable로 래핑
+                Mono.fromCallable { ragRetrievalService.retrieveRelevantContext(userQuery) }
+                    .map { contextChunks ->
+                        // 3. (Augmentation) 대화 내역과 Context를 기반으로 최종 프롬프트 생성
+                        val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
 
-        // (LLM 호출) 최종 프롬프트와 JSON 출력 지침을 클라이언트에 전달하여 StructuredResponse를 받는다
-        val structuredResponseMono: Mono<LlmStructuredResponse> = openAiClient.getChatCompletion(
-            SYSTEM_INSTRUCTION,
-            fullPrompt,
-            LlmStructuredResponse::class.java   // JSON 응답을 이 내부 DTO로 파싱하도록 지시
-        )
-
-        // LLM 응답을 최종 DTO와 로깅 키워드(Pair)로 변환
-        return structuredResponseMono
-            .map { structuredResponse ->
-                // 검색 근거로 사용된 텍스트 청크를 리스트로 구성
+                        // 4. (Generation)
+                        openAiClient.getChatCompletion(
+                            SYSTEM_INSTRUCTION,
+                            fullPrompt,
+                            LlmStructuredResponse::class.java
+                        ) to contextChunks // LLM 호출 Mono와 Context 청크를 Pair로 묶음
+                    }
+            }
+            .flatMap { (structuredResponseMono, contextChunks) ->
+                structuredResponseMono.map { it to contextChunks }
+            }
+            .map { (structuredResponse, contextChunks) ->
                 val sources = contextChunks.map {
-                    // 메타 정보와 줄거리를 구분하여 근거로 사용 (디버깅용)
                     "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
                 }
-                // 최종 사용자에게 반환될 응답 DTO
                 val chatResponse = ChatLLMResponse(
                     answer = structuredResponse.answer,
                     sources = sources
                 )
-                // 반환할 응답과 로깅에 필요한 키워드를 Pair로 묶어 다음 체인에 전달
-                Pair(chatResponse, structuredResponse.queryKeywords)
+                // Triple로 묶어 다음 체인에 전달 (ChatLLMResponse, 키워드, 청크)
+                Triple(chatResponse, structuredResponse.queryKeywords, contextChunks)
             }
-            .doOnSuccess { (chatResponse, queryKeywords) ->
-                // 챗봇 응답 저장 Mono의 결과가 성공적으로 생성 되었을때 DB 저장
+            .doOnSuccess { (chatResponse, queryKeywords, contextChunks) ->
+                // 챗봇 응답 저장
                 val relatedMovieCds = contextChunks.map { it.movieCd }
 
                 authUser?.let {
@@ -103,37 +122,65 @@ class ChatService (
                     )
                 }
             }
-            //최종적으로 반환할 ChatLLMResponse만 추출
-            .map { (chatResponse, _) -> chatResponse }
-
-            // 사용자 질문 요청 ~ 최종 응답 객체 생성까지 걸리는 시간
+            .map { (chatResponse, _, _) -> chatResponse }
             .doOnTerminate {
                 val elapsed = System.currentTimeMillis() - startTime
                 log.info("사용자 질문 요청 - 최종 응답 객체 생성까지 걸리는 시간 : {}ms", elapsed)
             }
     }
 
-    // LLM에게 전달할 최종 프롬프트를 생성Å
-    // 시스템 지시문 + [CONTEXT] + 사용자 질문의 구조를 가짐
-    private fun createFullPrompt(userQuery: String, contextChunks: List<MovieEmbeddingDto>): String{
-        // contextChunks 없으면 빈 문자열을, 있으면 형식화된 영화 정보를 포함
+    /**
+     * LLM에게 전달할 최종 프롬프트를 생성.
+     * [CONVERSATION HISTORY] + [CONTEXT] + [사용자 질문] 구조
+     */
+    private fun createFullPrompt(
+        userQuery: String,
+        contextChunks: List<MovieEmbeddingDto>,
+        historyList: List<ChatLog>
+    ): String{
+        // 1. 대화 내역 포맷팅
+        val historyString = formatHistory(historyList)
+
+        // 2. RAG Context 포맷팅
         val contextString = if (contextChunks.isEmpty()) {
             "제공할 Context 정보가 없습니다."
         } else {
             contextChunks.joinToString (separator = "\n---\n"){ dto ->
-              """
+                """
               [검색된 영화 컨텍스트]
               [메타데이터] ${dto.metaText}
               [줄거리 청크] ${dto.plotText}
               """.trimIndent()
             }
         }
+
+        // 3. 최종 프롬프트 구성
         return """
+        [CONVERSATION HISTORY]
+        $historyString
+
         [CONTEXT]
-         $contextString
+        $contextString
 
         [사용자 질문]
         $userQuery
         """.trimIndent()
+    }
+
+
+     // 과거 대화 내역 리스트(List<ChatLog>)를 LLM 프롬프트에 넣기 좋은 형식으로 변환.
+    private fun formatHistory(historyList: List<ChatLog>): String {
+        if (historyList.isEmpty()) {
+            return "이전 대화 내역이 없습니다."
+        }
+        // ChatLog 엔티티의 'role'과 'content' 필드 사용
+        return historyList.joinToString(separator = "\n") { log ->
+            val role = when (log.role) {
+                org.cinemind.domain.chatbot.enum.MessageRole.USER -> "사용자"
+                org.cinemind.domain.chatbot.enum.MessageRole.ASSISTANT -> "챗봇"
+                else -> log.role.name // SYSTEM 등
+            }
+            "$role: ${log.content}"
+        }
     }
 }
