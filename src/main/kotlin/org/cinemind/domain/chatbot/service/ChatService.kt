@@ -59,35 +59,45 @@ class ChatService (
     """.trimIndent()
 
     // RAG Context 확보, 최종 프롬프트 생성, LLM 호출을 통합
-    fun getLLMResponse( authUser: AuthUser?, userQuery: String): Mono<ChatLLMResponse> {
+    fun getLLMResponse(authUser: AuthUser?, sessionId: String?, userQuery: String): Mono<ChatLLMResponse> {
         val userId = authUser?.id
+        val guestSessionId = sessionId
 
-        // 대화 내역 저장: LLM 호출 전에 사용자 메시지를 먼저 저장
-        authUser?.let { chatLogService.saveUserMessage(it.id, userQuery) }
+        // Long ID가 있으면 인증 사용자, 없으면 게스트 String ID 사용 분기
+        if (userId != null) {
+            chatLogService.saveUserMessage(userId, userQuery)
+        } else if (guestSessionId != null) {
+            chatLogService.saveGuestMessage(guestSessionId, userQuery)
+        }
 
         // 요청 시작 시간 측정
         val startTime = System.currentTimeMillis()
 
-        // 1. (대화 메모리) 과거 대화 내역을 비동기적으로 조회
+        // 2. (대화 메모리) 과거 대화 내역을 비동기적으로 조회
         // Mono.fromCallable을 사용하여 동기(blocking) DB 조회를 비동기 체인에 통합
         val historyMono: Mono<List<ChatLog>> = if (userId != null) {
+            // 인증된 사용자 기록 조회
             Mono.fromCallable {
                 chatLogService.getRecentHistory(userId)
             }
+        } else if (guestSessionId != null) {
+            Mono.fromCallable {
+                chatLogService.getRecentGuestHistory(guestSessionId)
+            }
         } else {
-            Mono.just(emptyList()) // 비로그인 사용자
+            Mono.just(emptyList()) // ID가 없는 경우 빈 리스트 반환
         }
 
         return historyMono
             .flatMap { historyList ->
-                // 2. (RAG 1단계 - 검색)
+                // 3. (RAG 1단계 - 검색)
                 // Mono.fromCallable로 래핑
                 Mono.fromCallable { ragRetrievalService.retrieveRelevantContext(userQuery) }
                     .map { contextChunks ->
-                        // 3. (Augmentation) 대화 내역과 Context를 기반으로 최종 프롬프트 생성
+                        // 4. (Augmentation) 대화 내역과 Context를 기반으로 최종 프롬프트 생성
                         val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
 
-                        // 4. (Generation)
+                        // 5. (Generation)
                         openAiClient.getChatCompletion(
                             SYSTEM_INSTRUCTION,
                             fullPrompt,
@@ -110,12 +120,19 @@ class ChatService (
                 Triple(chatResponse, structuredResponse.queryKeywords, contextChunks)
             }
             .doOnSuccess { (chatResponse, queryKeywords, contextChunks) ->
-                // 챗봇 응답 저장
+                // 6. 챗봇 응답 저장 (타입에 따라 분기
                 val relatedMovieCds = contextChunks.map { it.movieCd }
 
-                authUser?.let {
+                if (userId != null) {
                     chatLogService.chatAssistantMessage(
-                        userId = it.id,
+                        userId = userId,
+                        content = chatResponse.answer,
+                        queryKeywords = queryKeywords,
+                        relatedMovieCds = relatedMovieCds
+                    )
+                } else if (sessionId != null) {
+                    chatLogService.chatGuestAssistantMessage(
+                        sessionId = sessionId,
                         content = chatResponse.answer,
                         queryKeywords = queryKeywords,
                         relatedMovieCds = relatedMovieCds
@@ -128,7 +145,6 @@ class ChatService (
                 log.info("사용자 질문 요청 - 최종 응답 객체 생성까지 걸리는 시간 : {}ms", elapsed)
             }
     }
-
     /**
      * LLM에게 전달할 최종 프롬프트를 생성.
      * [CONVERSATION HISTORY] + [CONTEXT] + [사용자 질문] 구조
@@ -166,7 +182,6 @@ class ChatService (
         $userQuery
         """.trimIndent()
     }
-
 
      // 과거 대화 내역 리스트(List<ChatLog>)를 LLM 프롬프트에 넣기 좋은 형식으로 변환.
     private fun formatHistory(historyList: List<ChatLog>): String {
