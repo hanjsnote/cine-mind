@@ -21,7 +21,8 @@ class ChatController (
 ) {
 
     data class UserQueryRequest(
-        val userQuery: String   // 사용자가 입력한 질문
+        val userQuery: String,   // 사용자가 입력한 질문
+        val sessionId: String? = null
     )
 
     // 사용자 질문을 처리하고 챗봇 응답을 반환하는 API 엔드포인트
@@ -31,6 +32,6 @@ class ChatController (
         @RequestBody request: UserQueryRequest
     ): Mono<ChatLLMResponse> {
         // ChatService에 질문을 위임하여 답변을 받음
-        return chatService.getLLMResponse(authUser, request.userQuery)
+        return chatService.getLLMResponse(authUser, request.sessionId, request.userQuery)
     }
 }
