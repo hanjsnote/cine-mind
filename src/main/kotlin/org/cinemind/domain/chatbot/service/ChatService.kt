@@ -4,13 +4,14 @@ import org.cinemind.common.dto.authuser.AuthUser
 import org.cinemind.domain.chatbot.client.OpenAiClient
 import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
 import org.cinemind.domain.chatbot.dto.response.LlmStructuredResponse
-import org.cinemind.domain.chatlog.entity.ChatLog // <-- ChatLog 엔티티 임포트
+import org.cinemind.domain.chatlog.entity.ChatLog
 import org.cinemind.domain.chatlog.service.ChatLogService
 import org.cinemind.domain.rag.dto.model.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers // **[수정 1] Schedulers import 추가**
 
 /**
  * 챗봇의 핵심 비즈니스 로직(RAG 오케스트레이션)을 담당하는 서비스
@@ -29,8 +30,7 @@ class ChatService (
 ){
     private val log = LoggerFactory.getLogger(javaClass)
 
-
-    // 챗봇 페르소나 및 답변 규칙 정의
+    // 챗봇 페르소나 및 답변 규칙 정의 (이전 내용과 동일)
     private val SYSTEM_INSTRUCTION = """
         당신은 '시네마인드'의 전문 영화 추천 및 정보 제공 챗봇입니다.
         사용자의 질문에 대해 항상 친절하고 정확하게 답변해야 합니다.
@@ -63,49 +63,60 @@ class ChatService (
         val userId = authUser?.id
         val guestSessionId = sessionId
 
-        // Long ID가 있으면 인증 사용자, 없으면 게스트 String ID 사용 분기
-        if (userId != null) {
-            chatLogService.saveUserMessage(userId, userQuery)
-        } else if (guestSessionId != null) {
-            chatLogService.saveGuestMessage(guestSessionId, userQuery)
-        }
-
         // 요청 시작 시간 측정
         val startTime = System.currentTimeMillis()
 
-        // 2. (대화 메모리) 과거 대화 내역을 비동기적으로 조회
-        // Mono.fromCallable을 사용하여 동기(blocking) DB 조회를 비동기 체인에 통합
+        // 1. (사용자 메시지 저장 - Non-Blocking)
+        // Blocking I/O를 Mono.fromRunnable로 감싸고 boundedElastic 스케줄러에서 실행하도록 위임
+        val saveUserMessageMono: Mono<Void> = if (userId != null) {
+            Mono.fromRunnable<Void> {
+                log.info("AUTHENTICATED: userId({})가 확인되어 사용자 메시지를 저장합니다.", userId)
+                chatLogService.saveUserMessage(userId, userQuery)
+            }.subscribeOn(Schedulers.boundedElastic())
+        } else if (guestSessionId != null) {
+            Mono.fromRunnable<Void> {
+                log.info("GUEST: sessionId({})가 확인되어 게스트 메시지 저장을 시도합니다.", guestSessionId)
+                chatLogService.saveGuestMessage(guestSessionId, userQuery)
+            }.subscribeOn(Schedulers.boundedElastic())
+        } else {
+            log.warn("SKIP: userId와 sessionId가 모두 null입니다. 메시지 저장을 건너뜁니다.")
+            Mono.empty()
+        }
+
+        // 2. (대화 메모리 - Non-Blocking)** 과거 대화 내역 조회
         val historyMono: Mono<List<ChatLog>> = if (userId != null) {
-            // 인증된 사용자 기록 조회
             Mono.fromCallable {
                 chatLogService.getRecentHistory(userId)
-            }
+            }.subscribeOn(Schedulers.boundedElastic()) // Blocking I/O 스케줄러 지정
         } else if (guestSessionId != null) {
             Mono.fromCallable {
                 chatLogService.getRecentGuestHistory(guestSessionId)
-            }
+            }.subscribeOn(Schedulers.boundedElastic()) // Blocking I/O 스케줄러 지정
         } else {
-            Mono.just(emptyList()) // ID가 없는 경우 빈 리스트 반환
+            Mono.just(emptyList())
         }
 
-        return historyMono
-            .flatMap { historyList ->
-                // 3. (RAG 1단계 - 검색)
-                // Mono.fromCallable로 래핑
-                Mono.fromCallable { ragRetrievalService.retrieveRelevantContext(userQuery) }
-                    .map { contextChunks ->
-                        // 4. (Augmentation) 대화 내역과 Context를 기반으로 최종 프롬프트 생성
-                        val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
+        // 3. (RAG 1단계 - 검색 - Non-Blocking)** Context 확보
+        val contextMono = Mono.fromCallable { ragRetrievalService.retrieveRelevantContext(userQuery) }
+            .subscribeOn(Schedulers.boundedElastic()) // Blocking I/O 스케줄러 지정
 
-                        // 5. (Generation)
-                        openAiClient.getChatCompletion(
-                            SYSTEM_INSTRUCTION,
-                            fullPrompt,
-                            LlmStructuredResponse::class.java
-                        ) to contextChunks // LLM 호출 Mono와 Context 청크를 Pair로 묶음
-                    }
-            }
-            .flatMap { (structuredResponseMono, contextChunks) ->
+        // 4. 사용자 메시지 저장 완료 후, 기록 조회와 Context 검색을 병렬로 시작 (Mono.zip)
+        return saveUserMessageMono.then(Mono.zip(historyMono, contextMono))
+            .flatMap { tuple ->
+                val historyList = tuple.t1 // 튜플의 첫 번째 요소: List<ChatLog>
+                val contextChunks = tuple.t2 // 튜플의 두 번째 요소: List<MovieEmbeddingDto>
+
+                // 5. (Augmentation) 대화 내역과 Context를 기반으로 최종 프롬프트 생성
+                val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
+
+                // 6. (Generation) LLM 호출 (OpenAiClient는 논블로킹 WebClient 기반이라고 가정)
+                val structuredResponseMono = openAiClient.getChatCompletion(
+                    SYSTEM_INSTRUCTION,
+                    fullPrompt,
+                    LlmStructuredResponse::class.java
+                )
+
+                // LLM 응답 Mono와 Context 청크를 묶어서 다음 단계로 전달
                 structuredResponseMono.map { it to contextChunks }
             }
             .map { (structuredResponse, contextChunks) ->
@@ -120,24 +131,35 @@ class ChatService (
                 Triple(chatResponse, structuredResponse.queryKeywords, contextChunks)
             }
             .doOnSuccess { (chatResponse, queryKeywords, contextChunks) ->
-                // 6. 챗봇 응답 저장 (타입에 따라 분기
+                // 7. 챗봇 응답 저장 (Non-Blocking, Fire-and-Forget)
                 val relatedMovieCds = contextChunks.map { it.movieCd }
 
-                if (userId != null) {
-                    chatLogService.chatAssistantMessage(
-                        userId = userId,
-                        content = chatResponse.answer,
-                        queryKeywords = queryKeywords,
-                        relatedMovieCds = relatedMovieCds
-                    )
-                } else if (sessionId != null) {
-                    chatLogService.chatGuestAssistantMessage(
-                        sessionId = sessionId,
-                        content = chatResponse.answer,
-                        queryKeywords = queryKeywords,
-                        relatedMovieCds = relatedMovieCds
-                    )
+                val saveAssistantMessageMono = if (userId != null) {
+                    Mono.fromRunnable<Void> {
+                        chatLogService.chatAssistantMessage(
+                            userId = userId,
+                            content = chatResponse.answer,
+                            queryKeywords = queryKeywords,
+                            relatedMovieCds = relatedMovieCds
+                        )
+                    }
+                } else if (guestSessionId != null) {
+                    Mono.fromRunnable<Void> {
+                        chatLogService.chatGuestAssistantMessage(
+                            sessionId = guestSessionId,
+                            content = chatResponse.answer,
+                            queryKeywords = queryKeywords,
+                            relatedMovieCds = relatedMovieCds
+                        )
+                    }
+                } else {
+                    Mono.empty()
                 }
+
+                // 응답 저장은 비동기로 실행하고, 결과를 기다릴 필요 없이 구독만 함
+                saveAssistantMessageMono
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .subscribe()
             }
             .map { (chatResponse, _, _) -> chatResponse }
             .doOnTerminate {
@@ -183,7 +205,7 @@ class ChatService (
         """.trimIndent()
     }
 
-     // 과거 대화 내역 리스트(List<ChatLog>)를 LLM 프롬프트에 넣기 좋은 형식으로 변환.
+    // 과거 대화 내역 리스트(List<ChatLog>)를 LLM 프롬프트에 넣기 좋은 형식으로 변환.
     private fun formatHistory(historyList: List<ChatLog>): String {
         if (historyList.isEmpty()) {
             return "이전 대화 내역이 없습니다."
