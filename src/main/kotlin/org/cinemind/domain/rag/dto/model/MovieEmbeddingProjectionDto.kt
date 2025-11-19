@@ -1,4 +1,4 @@
-package org.cinemind.domain.rag.repository
+package org.cinemind.domain.rag.dto.model
 
 interface MovieEmbeddingProjectionDto {
     val id: Long

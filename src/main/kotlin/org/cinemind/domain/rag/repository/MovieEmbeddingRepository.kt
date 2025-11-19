@@ -1,5 +1,6 @@
 package org.cinemind.domain.rag.repository
 //
+import org.cinemind.domain.rag.dto.model.MovieEmbeddingProjectionDto
 import org.cinemind.domain.rag.entity.MovieEmbedding
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
