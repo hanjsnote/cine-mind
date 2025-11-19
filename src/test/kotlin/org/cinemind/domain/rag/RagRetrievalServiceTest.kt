@@ -4,7 +4,7 @@ import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.mockk
 import org.cinemind.domain.rag.client.RagEmbeddingClient
-import org.cinemind.domain.rag.repository.MovieEmbeddingProjectionDto
+import org.cinemind.domain.rag.dto.model.MovieEmbeddingProjectionDto
 import org.cinemind.domain.rag.repository.MovieEmbeddingRepository
 import org.cinemind.domain.rag.service.RagRetrievalService
 import org.springframework.beans.factory.annotation.Autowired
