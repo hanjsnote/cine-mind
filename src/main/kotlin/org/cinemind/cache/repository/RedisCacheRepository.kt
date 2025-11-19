@@ -6,7 +6,7 @@ import org.cinemind.cache.dto.model.CacheableChatResponse
  * Semantic Cache (Redis Vector Store)와의 상호작용을 담당하는 Repository.
  * 벡터 유사도 검색 및 Key-Value 저장을 처리.
  */
-interface SemanticCacheRepository {
+interface RedisCacheRepository {
     /**
      * 벡터 유사도 검색을 수행하여 가장 유사한 캐시 데이터를 찾는다.
      * @param embedding 검색에 사용할 질문 벡터

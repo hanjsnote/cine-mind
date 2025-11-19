@@ -35,6 +35,8 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
     implementation("io.hypersistence:hypersistence-utils-hibernate-62:3.7.0")
     implementation("org.hibernate.orm:hibernate-vector:6.6.29.Final")
+    // Redis 의존성
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
     // JWT 관련 의존성
     implementation("io.jsonwebtoken:jjwt-api:0.11.5")
     implementation("io.jsonwebtoken:jjwt-impl:0.11.5")
