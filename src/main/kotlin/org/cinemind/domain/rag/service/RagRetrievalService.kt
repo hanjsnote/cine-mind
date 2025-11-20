@@ -8,11 +8,10 @@ import org.springframework.stereotype.Service
 
 /**
  * RAG 파이프라인의 검색(Retrieval) 부분을 담당하는 서비스
- * 사용자 질문을 벡터화하고 벡터 DB에서 가장 유사한 컨텍스트 청크를 검색
+ * ChatService에서 벡터화된 사용자 질문을 벡터 DB에서 가장 유사한 컨텍스트 청크를 검색
  */
 @Service
 class RagRetrievalService (
-    private val ragEmbeddingClient: RagEmbeddingClient,
     private val movieEmbeddingRepository: MovieEmbeddingRepository
 ) {
     private val log = LoggerFactory.getLogger(RagRetrievalService::class.java)
@@ -20,10 +19,7 @@ class RagRetrievalService (
     private val RETRIEVAL_LIMIT = 3
 
     // 사용자 질문에 가장 관련성이 높은 영화 임베딩 청크(Context)를 검색한다.\
-    fun retrieveRelevantContext(userQuery: String): List<MovieEmbeddingDto> {
-        if (userQuery.isBlank()) return emptyList()
-
-        val queryVector = ragEmbeddingClient.getEmbedding(userQuery)
+    fun retrieveRelevantContext(queryVector: FloatArray): List<MovieEmbeddingDto> {
         if (queryVector.isEmpty()) return emptyList()
 
         val metaResults = movieEmbeddingRepository.findByMetaVectorSimilarity(queryVector, RETRIEVAL_LIMIT)

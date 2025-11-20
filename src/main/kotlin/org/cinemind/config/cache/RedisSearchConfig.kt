@@ -46,28 +46,32 @@ class RedisSearchConfig (
                     // FT.CREATE 명령어 실행
                     val createCommandResult = connection.execute(
                         "FT.CREATE",
-                        INDEX_NAME.toByteArray(StandardCharsets.UTF_8),
-                        "ON".toByteArray(StandardCharsets.UTF_8),
-                        "JSON".toByteArray(StandardCharsets.UTF_8),
-                        "PREFIX".toByteArray(StandardCharsets.UTF_8),
-                        "1".toByteArray(StandardCharsets.UTF_8),
-                        "cache:".toByteArray(StandardCharsets.UTF_8),
-                        "SCHEMA".toByteArray(StandardCharsets.UTF_8),
-                        "\$.answer".toByteArray(StandardCharsets.UTF_8),
-                        "AS".toByteArray(StandardCharsets.UTF_8),
-                        "answer".toByteArray(StandardCharsets.UTF_8),
-                        "TEXT".toByteArray(StandardCharsets.UTF_8),
-                        "\$.userQuery".toByteArray(StandardCharsets.UTF_8),
-                        "AS".toByteArray(StandardCharsets.UTF_8),
-                        "userQuery".toByteArray(StandardCharsets.UTF_8),
-                        "VECTOR".toByteArray(StandardCharsets.UTF_8),
-                        "FLAT".toByteArray(StandardCharsets.UTF_8),
-                        "TYPE".toByteArray(StandardCharsets.UTF_8),
-                        "FLOAT32".toByteArray(StandardCharsets.UTF_8),
-                        "DIM".toByteArray(StandardCharsets.UTF_8),
-                        VECTOR_DIMENSION.toString().toByteArray(StandardCharsets.UTF_8),
-                        "DISTANCE_METRIC".toByteArray(StandardCharsets.UTF_8),
-                        "COSINE".toByteArray(StandardCharsets.UTF_8)
+                        INDEX_NAME.toByteArray(),
+                        "ON".toByteArray(),
+                        "JSON".toByteArray(),
+                        "PREFIX".toByteArray(),
+                        "1".toByteArray(),
+                        "cache:".toByteArray(),
+                        "SCHEMA".toByteArray(),
+
+                        // TEXT 필드
+                        "$.answer".toByteArray(),
+                        "AS".toByteArray(),
+                        "answer".toByteArray(),
+                        "TEXT".toByteArray(),
+
+                        // VECTOR 필드
+                        "$.userQuery".toByteArray(),
+                        "AS".toByteArray(),
+                        "userQuery".toByteArray(),
+                        "VECTOR".toByteArray(),
+                        "FLAT".toByteArray(),
+                        "TYPE".toByteArray(),
+                        "FLOAT32".toByteArray(),
+                        "DIM".toByteArray(),
+                        VECTOR_DIMENSION.toString().toByteArray(),
+                        "DISTANCE_METRIC".toByteArray(),
+                        "COSINE".toByteArray()
                     )
 
                     // 보통 성공 시 OK가 Byte Array로 반환되므로, 로그 출력을 위해 String으로 변환.
