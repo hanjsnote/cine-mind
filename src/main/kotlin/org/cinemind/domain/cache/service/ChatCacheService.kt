@@ -1,9 +1,8 @@
-package org.cinemind.cache.service
+package org.cinemind.domain.cache.service
 
-import org.cinemind.cache.dto.model.CacheableChatResponse
-import org.cinemind.cache.repository.RedisCacheRepository
+import org.cinemind.domain.cache.dto.model.CacheableChatResponse
+import org.cinemind.domain.cache.repository.RedisCacheRepository
 import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
-import org.intellij.lang.annotations.Identifier
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

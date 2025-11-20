@@ -1,12 +1,11 @@
-package org.cinemind.cache.repository
+package org.cinemind.domain.cache.repository
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.cinemind.cache.dto.model.CacheableChatResponse
+import org.cinemind.domain.cache.dto.model.CacheableChatResponse
 import org.cinemind.util.VectorUtils
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.stereotype.Repository
-import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
@@ -105,20 +104,28 @@ class RedisCacheRepositoryImpl (
 
         try {
             connectionFactory.connection.use { connection ->
-            // 1. DTO를 JSON 문자열로 직렬화
-            val jsonString = objectMapper.writeValueAsString(response)
 
-            // 2. JSON.SET 명령어 실행
+                // RedisSearch가 읽을 수 있는 JSON 구조 직접 생성
+                val jsonPayload = """
+            {
+                "userQuery": ${embedding.toList()},
+                "answer": "${response.answer}"
+            }
+            """.trimIndent()
+
+                // JSON 저장
                 connection.commands().execute(
                     "JSON.SET",
                     key.toByteArray(),
                     "$".toByteArray(),
-                    jsonString.toByteArray()
+                    jsonPayload.toByteArray()
                 )
+
                 connection.keyCommands().expire(key.toByteArray(), CACHE_TTL_SECONDS)
             }
 
             log.info("Saved cache: {}", key)
+
         } catch (e: Exception) {
             log.error("Failed to save cache: {}", e.message)
         }

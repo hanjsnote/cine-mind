@@ -16,6 +16,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  data:
+    redis:
+      host: localhost # Redis 서버의 호스트 주소 (예: localhost 또는 컨테이너 이름)
+      port: 6379           # Redis 서버의 포트 번호 (기본값)
 
 jwt:
   secret:
@@ -44,4 +48,7 @@ rag:
 
 logging:
   level:
+    # ChatService가 포함된 패키지의 로그 레벨을 DEBUG로 설정
+    com.cinemind: DEBUG
     org.springframework.security: DEBUG
+

@@ -1,6 +1,6 @@
-package org.cinemind.cache.repository
+package org.cinemind.domain.cache.repository
 
-import org.cinemind.cache.dto.model.CacheableChatResponse
+import org.cinemind.domain.cache.dto.model.CacheableChatResponse
 
 /**
  * Semantic Cache (Redis Vector Store)와의 상호작용을 담당하는 Repository.
