@@ -1,5 +1,6 @@
 package org.cinemind.domain.rag.client
 
+import org.springframework.cache.annotation.Cacheable
 import org.cinemind.config.openai.OpenAiConfigProperties
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
@@ -17,10 +18,16 @@ class RagEmbeddingClient (
     // 임베딩 모델 정의
     private val EMBEDDING_MODEL = "text-embedding-3-small"
 
+    /**
+     * 입력 테스트에 대한 임베딩 벡터를 생성하거나 캐시에서 조회
+     */
+    @Cacheable(value = ["query_embeddings"], key = "#text")
     fun getEmbedding(text: String): FloatArray {
         if (text.isBlank()) {
             return floatArrayOf()
         }
+
+        // --- Cache Miss 시 OpenAI API 호출 로직 ---
 
         // RagIndexingService에서 전달 받은 영화의 메타 정보(metaText) 또는 줄거리 텍스트를 벡터로 변환 요청
         val requestBody = mapOf(
