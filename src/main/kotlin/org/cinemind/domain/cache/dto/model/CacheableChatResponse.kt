@@ -1,4 +1,4 @@
-package org.cinemind.cache.dto.model
+package org.cinemind.domain.cache.dto.model
 
 import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
 
