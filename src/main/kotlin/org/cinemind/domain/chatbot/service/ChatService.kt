@@ -67,14 +67,18 @@ class ChatService (
 
         val startTime = System.currentTimeMillis()
 
-        // 1. 사용자 질문을 벡터화 L2 캐시 조회와 RAG 검색에 모두 사용
+        /**
+         * 1) 사용자 질문 벡터화
+         */
         val queryVectorMono: Mono<FloatArray> = Mono.fromCallable {
             ragEmbeddingClient.getEmbedding(userQuery)
         }.subscribeOn(Schedulers.boundedElastic())
             .cache() // 벡터화는 한 번만 수행하도록 캐싱
 
-        // 2. 생성된 벡터로 Semantic Cache 조회
-        val cacheResponseMono: Mono<CacheableChatResponse?> = queryVectorMono
+        /**
+         * 2) 생성된 벡터로 Semantic Cache 조회
+         */
+        val cacheResponseMono: Mono<CacheableChatResponse> = queryVectorMono
             .flatMap { vector ->
                 if (vector.isNotEmpty()) {
                     Mono.defer {
@@ -85,72 +89,95 @@ class ChatService (
                     Mono.empty()
                 }
             }
+            .doOnError { e ->
+                log.error("!!! ERROR: [Step 2: Cache Lookup] 캐시 조회 중 오류 발생: {}", e.message)
+            }
             .cache() // 캐시 조회 결과도 캐싱
 
-        // 3. 캐시 히트 여부에 따른 분기 처리
-        val finalResponseMono = cacheResponseMono.flatMap { cachedResponse ->
-            if (cachedResponse != null) {
-                // ** [Cache HIT] **
+        /**
+         * 3) 캐시 HIT → 바로 응답
+         * 4) 캐시 MISS → RAG 전체 파이프라인 실행
+         */
+        val finalResponseMono: Mono<ChatLLMResponse> = cacheResponseMono
+            // ** [Cache HIT] **
+            .map { cachedResponse ->
                 log.info("L2 Semantic Cache HIT. 응답을 즉시 반환합니다.")
-                // 캐시 히트 시, 응답 객체를 Mono로 변환
-                Mono.just(ChatLLMResponse(
+                ChatLLMResponse(
                     answer = cachedResponse.answer,
-                    // 캐시 응답은 출처(sources) 정보가 없으므로 빈 리스트 반환
                     sources = emptyList()
-                ))
-            } else {
-                // ** [Cache MISS] - Full RAG Pipeline 실행 **
-                log.info("L2 Semantic Cache MISS. Full RAG 파이프라인을 실행합니다.")
+                )
+            }
+            // ** [Cache MISS] - Full RAG Pipeline 실행 **
+            .switchIfEmpty(
+                Mono.defer {
+                    log.info("L2 Semantic Cache MISS. Full RAG 파이프라인을 실행합니다.")
 
-                // 4-1. 대화 메모리 조회 + 사용자 메시지 저장
-                val historyAndSaveMono = getHistoryAndSaveMessage(userId, guestSessionId, userQuery)
+                    // 4-1. 대화 메모리 조회 + 사용자 메시지 저장
+                    val historyAndSaveMono = getHistoryAndSaveMessage(userId, guestSessionId, userQuery)
+                        .doOnError { e -> log.error("!!! ERROR: [Step 4-1] 대화 내역 조회/저장 중 오류 발생: {}", e.message) }
+                        .onErrorReturn(emptyList())
 
-                // 4-2. (RAG) Retrieval, Augmentation, Generation 통합 실행
-                Mono.zip(historyAndSaveMono, queryVectorMono)
-                    .flatMap { tuple ->
-                        val historyList = tuple.t1 // 튜플의 첫 번째 요소: List<ChatLog>
-                        val vector = tuple.t2    // 튜플의 두 번째 요소: FloatArray (재사용)
+                    // 4-2. (RAG) Retrieval, Augmentation, Generation 통합 실행
+                    Mono.zip(historyAndSaveMono, queryVectorMono)
+                        .flatMap { tuple ->
+                            val historyList = tuple.t1 // 튜플의 첫 번째 요소: List<ChatLog>
+                            val vector = tuple.t2    // 튜플의 두 번째 요소: FloatArray (재사용)
 
-                        // 4-3. Context 확보: 이미 생성된 벡터 사용
-                        val contextMono = Mono.fromCallable {
-                            ragRetrievalService.retrieveRelevantContext(vector)
-                        }.subscribeOn(Schedulers.boundedElastic())
+                            // 4-3. Context 확보: 이미 생성된 벡터 사용
+                            val contextMono = Mono.fromCallable {
+                                ragRetrievalService.retrieveRelevantContext(vector)
+                            }.subscribeOn(Schedulers.boundedElastic())
 
-                        contextMono.flatMap { contextChunks ->
-                            // 4-4. 최종 프롬프트 생성
-                            val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
+                            contextMono.flatMap { contextChunks ->
+                                // 4-4. 최종 프롬프트 생성
+                                val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
 
-                            // 4-5. LLM 호출
-                            openAiClient.getChatCompletion(
-                                SYSTEM_INSTRUCTION,
-                                fullPrompt,
-                                LlmStructuredResponse::class.java
-                            ).map { structuredResponse ->
-                                // LLM 응답 후, Triple로 묶어 다음 단계로 전달
-                                val sources = contextChunks.map {
-                                    "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
+                                // 4-5. LLM 호출
+                                openAiClient.getChatCompletion(
+                                    SYSTEM_INSTRUCTION,
+                                    fullPrompt,
+                                    LlmStructuredResponse::class.java
+                                ).map { structuredResponse ->
+                                    // LLM 응답 후, Triple로 묶어 다음 단계로 전달
+                                    val sources = contextChunks.map {
+                                        "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
+                                    }
+                                    val chatResponse = ChatLLMResponse(
+                                        answer = structuredResponse.answer,
+                                        sources = sources
+                                    )
+                                    Triple(chatResponse, structuredResponse.queryKeywords, vector) // 벡터도 함께 전달
+                                }.doOnError { e ->
+                                    log.error("!!! FATAL ERROR: LLM API 호출 또는 JSON 파싱 실패: {}", e.message)
+                                    throw RuntimeException("LLM 생성 실패")
                                 }
-                                val chatResponse = ChatLLMResponse(
-                                    answer = structuredResponse.answer,
-                                    sources = sources
-                                )
-                                Triple(chatResponse, structuredResponse.queryKeywords, vector) // 벡터도 함께 전달
                             }
                         }
-                    }
-                    .doOnSuccess { (chatResponse, queryKeywords, queryVector) ->
-                        // 5. 응답을 Semantic Cache에 저장 (비동기 Fire-and-Forget)
-                        Mono.fromRunnable<Void> {
-                            chatCacheService.writeResponse(queryVector, chatResponse)
-                        }.subscribeOn(Schedulers.boundedElastic()).subscribe()
+                        .doOnSuccess { (chatResponse, queryKeywords, queryVector) ->
+                            /**
+                             * 5) 성공적으로 응답 생성 → 캐시 저장
+                             */
+                            Mono.fromRunnable<Void> {
+                                chatCacheService.writeResponse(queryVector, chatResponse)
+                            }.subscribeOn(Schedulers.boundedElastic()).subscribe()
 
-                        // 6. 챗봇 응답 저장 (비동기 Fire-and-Forget)
-                        val relatedMovieCds = chatResponse.sources.mapNotNull { extractMovieCd(it) }.distinct()
-                        saveAssistantMessage(userId, guestSessionId, chatResponse.answer, queryKeywords, relatedMovieCds)
-                    }
-                    .map { (chatResponse, _, _) -> chatResponse } // 최종 ChatLLMResponse 반환
-            }
-        }
+                            /**
+                             * 6) 챗봇 응답 저장
+                             */
+                            val relatedMovieCds = chatResponse.sources.mapNotNull { extractMovieCd(it) }.distinct()
+                            saveAssistantMessage(userId, guestSessionId, chatResponse.answer, queryKeywords, relatedMovieCds)
+                        }
+                        .map { (chatResponse, _, _) -> chatResponse }
+                        .switchIfEmpty(
+                            Mono.just(
+                                ChatLLMResponse(
+                                    "LLM 생성 실패로 인해 답변을 생성하지 못했습니다. 로그를 확인해주세요.",
+                                    emptyList()
+                                )
+                            )
+                        )
+                }
+            )
 
         return finalResponseMono
             .doOnTerminate {
