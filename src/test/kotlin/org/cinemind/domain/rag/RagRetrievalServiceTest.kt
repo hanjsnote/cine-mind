@@ -79,7 +79,8 @@ class RagRetrievalServiceTest @Autowired constructor (
         } returns mockPlotResults
 
         // WHEN
-        val resultList = ragRetrievalService.retrieveRelevantContext(userQuery)
+        val vector = ragEmbeddingClient.getEmbedding(userQuery)
+        val resultList = ragRetrievalService.retrieveRelevantContext(vector)
 
         // THEN
         // 최종 결과는 RETRIEVAL_LIMIT(3)개여야 한다.
@@ -101,7 +102,7 @@ class RagRetrievalServiceTest @Autowired constructor (
     @Test
     fun 질문이_비어있으면_빈_목록을_반환한다(){
         // WHEN
-        val resultList = ragRetrievalService.retrieveRelevantContext("")
+        val resultList = ragRetrievalService.retrieveRelevantContext(FloatArray(0))
 
         // THEN
         assertEquals(0, resultList.size)
@@ -113,7 +114,7 @@ class RagRetrievalServiceTest @Autowired constructor (
         every { ragEmbeddingClient.getEmbedding(any()) } returns FloatArray(0)
 
         // WHEN
-        val resultList = ragRetrievalService.retrieveRelevantContext("질문")
+        val resultList = ragRetrievalService.retrieveRelevantContext(FloatArray(0))
 
         // THEN
         assertEquals(0, resultList.size)
