@@ -1,8 +1,8 @@
 package org.cinemind.domain.chatbot.service
 
-import org.cinemind.cache.dto.model.CacheableChatResponse
-import org.cinemind.cache.service.ChatCacheService
 import org.cinemind.common.dto.authuser.AuthUser
+import org.cinemind.domain.cache.dto.model.CacheableChatResponse
+import org.cinemind.domain.cache.service.ChatCacheService
 import org.cinemind.domain.chatbot.client.OpenAiClient
 import org.cinemind.domain.chatbot.dto.response.ChatLLMResponse
 import org.cinemind.domain.chatbot.dto.response.LlmStructuredResponse
@@ -77,11 +77,12 @@ class ChatService (
         val cacheResponseMono: Mono<CacheableChatResponse?> = queryVectorMono
             .flatMap { vector ->
                 if (vector.isNotEmpty()) {
-                    Mono.fromCallable {
-                        chatCacheService.retrieveResponse(vector, identifier)
+                    Mono.defer {
+                        val cached = chatCacheService.retrieveResponse(vector, identifier)
+                        Mono.justOrEmpty(cached)
                     }.subscribeOn(Schedulers.boundedElastic())
                 } else {
-                    Mono.justOrEmpty(null)
+                    Mono.empty()
                 }
             }
             .cache() // 캐시 조회 결과도 캐싱

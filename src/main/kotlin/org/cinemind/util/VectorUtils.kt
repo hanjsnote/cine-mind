@@ -1,11 +1,13 @@
 package org.cinemind.util
 
+import org.springframework.stereotype.Component
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
  * RedisSearch를 위해 FLOAT32 배열(임베딩 벡터)을 Raw Binary Bytes (byte[])로 변환하는 유틸리티
  */
+@Component
 class VectorUtils {
 
     fun floatsToRawByteArray(floats: FloatArray): ByteArray {
