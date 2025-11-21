@@ -6,6 +6,7 @@ import org.cinemind.util.VectorUtils
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.stereotype.Repository
+import java.util.Base64
 import java.util.UUID
 
 /**
@@ -32,32 +33,34 @@ class RedisCacheRepositoryImpl (
         // 검색용 Raw Binary Vector 생성
         val vectorBytes = VectorUtils().floatsToRawByteArray(embedding)
 
-        // 명령어 실행을 위한 인자 구성
-        val searchArgs = listOf(
-            INDEX_NAME.toByteArray(),
-            "*=>[KNN 1 @userQuery \$vec AS score]".toByteArray(),
-            "PARAMS".toByteArray(),
-            "2".toByteArray(),
-            "vec".toByteArray(),
-            vectorBytes,
-            "RETURN".toByteArray(),
-            "3".toByteArray(),
-            "$.answer".toByteArray(),
-            "AS".toByteArray(),
-            "answer".toByteArray(),
-            "score".toByteArray(),
-            "SORTBY".toByteArray(),
-            "score".toByteArray(),
-            "DIALECT".toByteArray(),
-            "2".toByteArray(),
-            "LIMIT".toByteArray(),
-            "0".toByteArray(),
-            "1".toByteArray()
-        ).toTypedArray()
         return try {
-            connectionFactory.connection.use { connection ->
+            connectionFactory.connection.use { conn ->
+
+                    // 명령어 실행을 위한 인자 구성
+                val searchArgs = listOf(
+                    INDEX_NAME.toByteArray(),
+                    "*=>[KNN 1 @userQuery \$vec AS score]".toByteArray(),
+                    "PARAMS".toByteArray(),
+                    "2".toByteArray(),
+                    "vec".toByteArray(),
+                    vectorBytes,
+                    "RETURN".toByteArray(),
+                    "3".toByteArray(),
+                    "$.answer".toByteArray(),
+                    "AS".toByteArray(),
+                    "answer".toByteArray(),
+                    "score".toByteArray(),
+                    "SORTBY".toByteArray(),
+                    "score".toByteArray(),
+                    "DIALECT".toByteArray(),
+                    "2".toByteArray(),
+                    "LIMIT".toByteArray(),
+                    "0".toByteArray(),
+                    "1".toByteArray()
+                ).toTypedArray()
+
                 // FT.SEARCH 실행
-                val resultList = connection.commands().execute("FT.SEARCH", *searchArgs) as? List<*>
+                val resultList = conn.commands().execute("FT.SEARCH", *searchArgs) as? List<*>
                     ?: return null
 
                 // 결과 파싱
@@ -101,6 +104,8 @@ class RedisCacheRepositoryImpl (
     // 질문 벡터와 응답 데이터를 Redis에 저장
     override fun save(embedding: FloatArray, response: CacheableChatResponse) {
         val key = "$KEY_PREFIX${UUID.randomUUID()}"
+        val vectorBytes = VectorUtils().floatsToRawByteArray(embedding)
+        val base64Vector = Base64.getEncoder().encodeToString(vectorBytes)
 
         try {
             connectionFactory.connection.use { connection ->
@@ -108,7 +113,7 @@ class RedisCacheRepositoryImpl (
                 // RedisSearch가 읽을 수 있는 JSON 구조 직접 생성
                 val jsonPayload = """
             {
-                "userQuery": ${embedding.toList()},
+                "userQuery": $base64Vector,
                 "answer": "${response.answer}"
             }
             """.trimIndent()
@@ -124,10 +129,10 @@ class RedisCacheRepositoryImpl (
                 connection.keyCommands().expire(key.toByteArray(), CACHE_TTL_SECONDS)
             }
 
-            log.info("Saved cache: {}", key)
+            log.info("Cache 저장 완료 key: {}", key)
 
         } catch (e: Exception) {
-            log.error("Failed to save cache: {}", e.message)
+            log.error("Cache 저장 중 오류: {}", e.message)
         }
     }
 }

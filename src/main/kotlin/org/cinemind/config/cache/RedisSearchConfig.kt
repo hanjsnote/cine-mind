@@ -49,7 +49,6 @@ class RedisSearchConfig (
             try {
                 connectionFactory.connection.use { connection ->
 
-                    // FT.CREATE 명령어 인자 배열 준비
                     val commandArgs = listOf(
                         INDEX_NAME, "ON", "JSON",
                         "PREFIX", "1", KEY_PREFIX,
