@@ -186,19 +186,23 @@ class ChatService (
             }
     }
 
-    // 사용자 메시지 저장과 대화 내역 조회를 통합하는 Mono
+    /**
+     * 대화 기록 저장 + 조회
+     */
     private fun getHistoryAndSaveMessage(userId: Long?, guestSessionId: String?, userQuery: String): Mono<List<ChatLog>> {
         // 1. 사용자 메시지 저장 (Non-Blocking, Fire-and-Forget)
         val saveUserMessageMono: Mono<Void> = if (userId != null) {
             Mono.fromRunnable<Void> {
                 log.info("AUTHENTICATED: userId({})가 확인되어 사용자 메시지를 저장합니다.", userId)
                 chatLogService.saveUserMessage(userId, userQuery)
-            }
+            }.subscribeOn(Schedulers.boundedElastic())
+
         } else if (guestSessionId != null) {
             Mono.fromRunnable<Void> {
                 log.info("GUEST: sessionId({})가 확인되어 게스트 메시지 저장을 시도합니다.", guestSessionId)
                 chatLogService.saveGuestMessage(guestSessionId, userQuery)
             }
+
         } else {
             log.warn("SKIP: userId와 sessionId가 모두 null입니다. 메시지 저장을 건너뜁니다.")
             Mono.empty()
@@ -208,11 +212,13 @@ class ChatService (
         val historyMono: Mono<List<ChatLog>> = if (userId != null) {
             Mono.fromCallable {
                 chatLogService.getRecentHistory(userId)
-            }
+            }.subscribeOn(Schedulers.boundedElastic())
+
         } else if (guestSessionId != null) {
             Mono.fromCallable {
                 chatLogService.getRecentGuestHistory(guestSessionId)
             }
+
         } else {
             Mono.just(emptyList())
         }.subscribeOn(Schedulers.boundedElastic())
@@ -221,7 +227,9 @@ class ChatService (
         return saveUserMessageMono.then(historyMono)
     }
 
-    // 어시스턴트 메시지 저장을 위한 Non-Blocking 처리
+    /**
+     * 어시스턴트 메시지 저장
+     */
     private fun saveAssistantMessage(
         userId: Long?,
         guestSessionId: String?,
@@ -254,7 +262,9 @@ class ChatService (
         saveMono.subscribeOn(Schedulers.boundedElastic()).subscribe()
     }
 
-    // 소스에서 movieCd를 추출하는 유틸리티 함수 (ChatLog 저장을 위해)
+    /**
+     * 소스에서 movieCd를 추출하는 유틸리티 함수 (ChatLog 저장을 위해)
+     */
     private fun extractMovieCd(source: String): String? {
         val regex = Regex("\\[메타데이터] (.*?) \\[줄거리]")
         // 메타데이터에서 movieCd를 추출하는 로직 구현 필요
