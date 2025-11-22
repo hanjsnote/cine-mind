@@ -112,10 +112,10 @@ class RedisCacheRepositoryImpl (
 
                 // RedisSearch가 읽을 수 있는 JSON 구조 직접 생성
                 val jsonPayload = """
-            {
-                "userQuery": $base64Vector,
-                "answer": "${response.answer}"
-            }
+                {
+                  "userQuery": "$base64Vector",
+                  "answer": "${response.answer}"
+                }
             """.trimIndent()
 
                 // JSON 저장
@@ -127,10 +127,8 @@ class RedisCacheRepositoryImpl (
                 )
 
                 connection.keyCommands().expire(key.toByteArray(), CACHE_TTL_SECONDS)
+                log.info("Cache 저장 완료 key: {}", key)
             }
-
-            log.info("Cache 저장 완료 key: {}", key)
-
         } catch (e: Exception) {
             log.error("Cache 저장 중 오류: {}", e.message)
         }
