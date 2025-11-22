@@ -35,32 +35,22 @@ class RedisCacheRepositoryImpl (
 
         return try {
             connectionFactory.connection.use { conn ->
-
-                    // 명령어 실행을 위한 인자 구성
+                // 명령어 실행을 위한 인자 구성
                 val searchArgs = listOf(
                     INDEX_NAME.toByteArray(),
                     "*=>[KNN 1 @userQuery \$vec AS score]".toByteArray(),
-                    "PARAMS".toByteArray(),
-                    "2".toByteArray(),
-                    "vec".toByteArray(),
-                    vectorBytes,
-                    "RETURN".toByteArray(),
-                    "3".toByteArray(),
-                    "$.answer".toByteArray(),
-                    "AS".toByteArray(),
+                    "PARAMS".toByteArray(), "2".toByteArray(),
+                    "vec".toByteArray(), vectorBytes,
+                    "RETURN".toByteArray(), "2".toByteArray(),
                     "answer".toByteArray(),
                     "score".toByteArray(),
-                    "SORTBY".toByteArray(),
-                    "score".toByteArray(),
-                    "DIALECT".toByteArray(),
-                    "2".toByteArray(),
-                    "LIMIT".toByteArray(),
-                    "0".toByteArray(),
-                    "1".toByteArray()
+                    "SORTBY".toByteArray(), "score".toByteArray(),
+                    "DIALECT".toByteArray(), "2".toByteArray(),
+                    "LIMIT".toByteArray(), "0".toByteArray(), "1".toByteArray()
                 ).toTypedArray()
 
                 // FT.SEARCH 실행
-                val resultList = conn.commands().execute("FT.SEARCH", *searchArgs) as? List<*>
+                val resultList = conn.execute("FT.SEARCH", *searchArgs) as? List<*>
                     ?: return null
 
                 // 결과 파싱
@@ -96,7 +86,13 @@ class RedisCacheRepositoryImpl (
                 )
             }
         } catch (e: Exception) {
-            log.error("Vector search failed: {}", e.message)
+            val root = generateSequence(e as Throwable?) { it.cause }.last()
+            log.error(
+                "Vector search failed,top='{}', root='{}'",
+                e.message,
+                root.message,
+                e
+            )
             null
         }
     }

@@ -5,6 +5,11 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.connection.RedisConnectionFactory
 
+/**
+ * RedisSearch 인덱스를 생성하는 로직
+ * 존재 여부를 미리 확인하지 않고 먼저 FT.CREATE를 시도
+ * 새로 만들어지면 성공, 이미 있을 경우 'Index already exists' 로그 출력
+ */
 @Configuration
 class RedisSearchConfig(
     private val connectionFactory: RedisConnectionFactory
