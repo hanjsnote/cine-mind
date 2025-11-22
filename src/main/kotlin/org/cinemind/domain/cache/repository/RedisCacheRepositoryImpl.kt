@@ -20,7 +20,7 @@ class RedisCacheRepositoryImpl (
 ) : RedisCacheRepository {
 
     private val log = LoggerFactory.getLogger(javaClass)
-    private val INDEX_NAME = "idx:chat_cache"
+    private val INDEX_NAME = "chat_cache"
     private val KEY_PREFIX = "cache:"
     private val CACHE_TTL_SECONDS = 3600L // 1시간
 
@@ -111,15 +111,16 @@ class RedisCacheRepositoryImpl (
             connectionFactory.connection.use { connection ->
 
                 // RedisSearch가 읽을 수 있는 JSON 구조 직접 생성
+                val jsonVector = embedding.joinToString(prefix = "[", postfix = "]")
+
                 val jsonPayload = """
                 {
-                  "userQuery": "$base64Vector",
+                  "userQuery": $jsonVector,
                   "answer": "${response.answer}"
                 }
             """.trimIndent()
 
-                // JSON 저장
-                connection.commands().execute(
+                val res = connection.commands().execute(
                     "JSON.SET",
                     key.toByteArray(),
                     "$".toByteArray(),
@@ -130,7 +131,7 @@ class RedisCacheRepositoryImpl (
                 log.info("Cache 저장 완료 key: {}", key)
             }
         } catch (e: Exception) {
-            log.error("Cache 저장 중 오류: {}", e.message)
+            log.error("Cache 저장 실패: {}", e.message)
         }
     }
 }
