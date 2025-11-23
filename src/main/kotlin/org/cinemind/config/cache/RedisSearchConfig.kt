@@ -3,6 +3,7 @@ package org.cinemind.config.cache
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.connection.RedisConnectionFactory
 
 /**
@@ -11,6 +12,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory
  * 새로 만들어지면 성공, 이미 있을 경우 'Index already exists' 로그 출력
  */
 @Configuration
+@Profile("!test")
 class RedisSearchConfig(
     private val connectionFactory: RedisConnectionFactory
 ) {
