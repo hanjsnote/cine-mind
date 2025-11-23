@@ -15,7 +15,7 @@ class ChatCacheService (
     private val redisCacheRepository: RedisCacheRepository
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val SIMILARITY_THRESHOLD = 0.90f // 유사도 임계값
+    private val SIMILARITY_THRESHOLD = 0.75f // 유사도 임계값
 
     // 캐시 조회
     fun retrieveResponse(queryVector: FloatArray, identifier: String): CacheableChatResponse? {
