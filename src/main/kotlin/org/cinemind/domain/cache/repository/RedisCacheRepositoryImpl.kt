@@ -28,7 +28,8 @@ class RedisCacheRepositoryImpl(
     private val log = LoggerFactory.getLogger(javaClass)
     private val INDEX_NAME = "chat_cache"
     private val KEY_PREFIX = "cache:"
-    private val CACHE_TTL_SECONDS = 3600L // 1시간
+    private val CACHE_TTL_SECONDS = 3600L     // 1시간
+    private val MAX_TTL_SECONDS = CACHE_TTL_SECONDS * 2 // 최대 2시간
 
     private enum class RediSearchCommand(private val keyword: String) : ProtocolKeyword {
         FT_SEARCH("FT.SEARCH");
@@ -83,10 +84,10 @@ class RedisCacheRepositoryImpl(
             ).get(5, TimeUnit.SECONDS) as? List<Any?> ?: return null
 
             log.info("FT.SEARCH raw = {}", raw)
-
             if (raw.isEmpty()) return null
 
-            // 전체 tree에서 answer/score만 찾는다
+            //  FT.SEARCH 결과 전체에서 key와 answer/score를 각각 추출
+            val redisKey = extractRedisKey(raw)
             val (answer, score) = extractAnswerAndScore(raw) ?: run {
                 log.info("FT.SEARCH 결과에서 answer/score 없음 → 캐시 미스 처리. raw={}", raw)
                 return null
@@ -98,6 +99,30 @@ class RedisCacheRepositoryImpl(
                 return null
             }
 
+            // TTL 연장
+            if (!redisKey.isNullOrBlank()) {
+                val keyBytes = redisKey.toByteArray()
+                val currentTtl = conn.keyCommands().ttl(keyBytes) ?: -2L  // -2: 없음, -1: 만료 없음
+                val baseTtl = if (currentTtl < 0) 0 else currentTtl
+                val newTtl = (baseTtl + CACHE_TTL_SECONDS).coerceAtMost(MAX_TTL_SECONDS)
+
+                if (newTtl > baseTtl) {
+                    conn.keyCommands().expire(keyBytes, newTtl)
+                    log.info(
+                        "Cache HIT key: {} -> TTL {}초로 연장 (기존 {}초)",
+                        redisKey, newTtl, currentTtl
+                    )
+                } else {
+                    log.info(
+                        "Cache HIT key: {} -> TTL 이미 최대치({}초), 연장 생략 (현재 {}초)",
+                        redisKey, MAX_TTL_SECONDS, currentTtl
+                    )
+                }
+            } else {
+                log.warn("Cache HIT. 하지만 redisKey를 찾지 못해서 TTL 연장을 건너뜁니다. raw={}", raw)
+            }
+
+            // 3) 최종 결과 반환
             RedisCacheRepository.CacheHitResult(
                 data = CacheableChatResponse(
                     answer = answer,
@@ -114,7 +139,7 @@ class RedisCacheRepositoryImpl(
                 root.message,
                 e
             )
-            null
+            return null
         }
     }
 
@@ -162,6 +187,26 @@ class RedisCacheRepositoryImpl(
             null         -> ""
             else         -> any.toString()
         }
+
+    // raw 안을 재귀적으로 돌면서 "cache:"로 시작하는 key를 찾는다
+    private fun extractRedisKey(node: Any?): String? {
+        when (node) {
+            is List<*> -> {
+                for (child in node) {
+                    val found = extractRedisKey(child)
+                    if (found != null) return found
+                }
+            }
+            is ByteArray -> {
+                val s = node.toString(Charsets.UTF_8)
+                if (s.startsWith(KEY_PREFIX)) return s
+            }
+            is String -> {
+                if (node.startsWith(KEY_PREFIX)) return node
+            }
+        }
+        return null
+    }
 
     /**
      * 질문 벡터와 응답 데이터를 Redis에 저장
