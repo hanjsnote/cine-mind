@@ -4,6 +4,7 @@ import org.cinemind.config.jwt.JwtAuthenticationFilter
 import org.cinemind.config.jwt.JwtUtil
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -12,6 +13,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
 @Configuration
 @EnableWebSecurity  // Spring Security 활성화
@@ -32,6 +36,8 @@ class SecurityConfig (
         return httpSecurity
             // CSRF 비활성화 (JWT 사용 시 불필요)
             .csrf{it.disable()}
+            // CORS 활성화
+            .cors { }
             // 세션 관리 : STATELESS 설정
             .sessionManagement{ it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             // 커스텀 JWT 필터 등록
@@ -44,9 +50,24 @@ class SecurityConfig (
                     .requestMatchers("/api/auth/**").permitAll()
                     // 기타 공개 엔드포인트
                     .requestMatchers("/open", "/health", "/api/chat").permitAll()
+                    // CORS 프리플라이트 옵션 허용
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     // 나머지 모든 요청은 인증 필요
                     .anyRequest().authenticated()
             }
             .build()
+    }
+    // CORS 전역설정
+    @Bean
+    fun corsConfigurationSource(): CorsConfigurationSource {
+        val config = CorsConfiguration()
+        config.allowedOrigins = listOf("http://localhost:5173")
+        config.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        config.allowedHeaders = listOf("*")
+        config.allowCredentials = true
+
+        val source = UrlBasedCorsConfigurationSource()
+        source.registerCorsConfiguration("/**", config)
+        return source
     }
 }
