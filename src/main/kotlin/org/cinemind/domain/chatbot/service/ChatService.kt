@@ -11,6 +11,7 @@ import org.cinemind.domain.chatlog.service.ChatLogService
 import org.cinemind.domain.rag.client.RagEmbeddingClient
 import org.cinemind.domain.rag.dto.model.MovieEmbeddingDto
 import org.cinemind.domain.rag.service.RagRetrievalService
+import org.cinemind.util.keywordList
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
@@ -32,9 +33,10 @@ import reactor.core.scheduler.Schedulers
 class ChatService (
     private val openAiClient: OpenAiClient,
     private val ragRetrievalService: RagRetrievalService,
-    private val chatLogService: ChatLogService,
     private val chatCacheService: ChatCacheService,
-    private val ragEmbeddingClient: RagEmbeddingClient, // 벡터화를 위해 RagEmbeddingClient 주입
+    private val ragEmbeddingClient: RagEmbeddingClient,
+    private val chatHistorySupport: ChatHistorySupport,
+    private val chatPromptSupport: ChatPromptSupport,
 ){
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -118,8 +120,8 @@ class ChatService (
          * 4) 캐시 MISS → RAG 전체 파이프라인 실행
          */
         // 캐시 / RAG 공통으로 쓸 user 메시지 저장 + 대화 내역 조회
-        val historyMono: Mono<List<ChatLog>> = getHistoryAndSaveMessage(userId, guestSessionId, userQuery)
-            .doOnError { e -> log.error("!!! ERROR: 대화 내역 조회/저장 중 오류 발생: {}\", e.message", e.message) }
+        val historyMono: Mono<List<ChatLog>> = chatHistorySupport.getHistoryAndSaveMessage(userId, guestSessionId, userQuery)
+            .doOnError { e -> log.error("!!! ERROR: 대화 내역 조회/저장 중 오류 발생: {}", e.message) }
             .onErrorReturn(emptyList())
             .cache()
 
@@ -129,7 +131,7 @@ class ChatService (
                 historyMono.then(   // user 메시지 저장 완료까지 기다렸다가
                     Mono.fromCallable {
                         // assistant 로그도 남겨 둔다 (키워드는 일단 비워도 됨)
-                        saveAssistantMessage(
+                        chatHistorySupport.saveAssistantMessage(
                             userId,
                             guestSessionId,
                             cachedResponse.answer,
@@ -156,10 +158,10 @@ class ChatService (
                             val vector = tuple.t2
 
                             // 지시어("그 영화 ~") 질문인지 먼저 판별
-                            val isDeictic = isDeicticMovieQuestion(userQuery)
-
+                            val isDeictic = chatPromptSupport.isDeicticMovieQuestion(userQuery)
                             // 콜드 스타트 + 지시어인 경우: 바로 안내 메시지 리턴
                             val hasAnyKeywords = historyList.any { it.keywordList().isNotEmpty() }
+
                             if (isDeictic && !hasAnyKeywords) {
                                 log.info("지시어 질문이지만 대화 내역이 없는 콜드 스타트입니다. RAG를 실행하지 않고 안내 메시지를 반환합니다. query={}", userQuery)
 
@@ -178,7 +180,7 @@ class ChatService (
                             val contextMono = Mono.fromCallable {
                                 if (isDeictic) {
                                     // 대화 내역에서 가장 최근에 다룬 영화 제목 찾기
-                                    val focusedTitle = findFocusedMovieTitleFromHistory(historyList)
+                                    val focusedTitle = chatHistorySupport.findFocusedMovieTitleFromHistory(historyList)
 
                                     if (focusedTitle != null) {
                                         log.info("지시어 질문으로 판단되어, 최근 영화 '{}' 제목으로 RAG 검색을 수행합니다.", focusedTitle)
@@ -198,7 +200,7 @@ class ChatService (
 
                             contextMono.flatMap { contextChunks ->
                                 // 4-3. 최종 프롬프트 생성
-                                val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
+                                val fullPrompt = chatPromptSupport.createFullPrompt(userQuery, contextChunks, historyList)
 
                                 // 4-4. LLM 호출
                                 openAiClient.getChatCompletion(
@@ -220,7 +222,7 @@ class ChatService (
                         }
                         .doOnSuccess { (chatResponse, queryKeywords, queryVector) ->
 
-                            val ambiguous = isDeicticMovieQuestion(userQuery)
+                            val ambiguous = chatPromptSupport.isDeicticMovieQuestion(userQuery)
 
                             /**
                              * 5) 성공적으로 응답 생성 → 모호하지 않은 쿼리만 글로벌 캐시 저장(예: '그 영화 줄거리가 뭐지?'는 캐시 저장 안함)
@@ -237,7 +239,7 @@ class ChatService (
                              * 6) 챗봇 응답 저장
                              */
                             val relatedMovieCds = chatResponse.sources.mapNotNull { extractMovieCd(it) }.distinct()
-                            saveAssistantMessage(userId, guestSessionId, chatResponse.answer, queryKeywords, relatedMovieCds)
+                            chatHistorySupport.saveAssistantMessage(userId, guestSessionId, chatResponse.answer, queryKeywords, relatedMovieCds)
                         }
                         .map { (chatResponse, _, _) -> chatResponse }
                         .switchIfEmpty(
@@ -259,82 +261,6 @@ class ChatService (
     }
 
     /**
-     * 대화 기록 저장 + 조회
-     */
-    private fun getHistoryAndSaveMessage(userId: Long?, guestSessionId: String?, userQuery: String): Mono<List<ChatLog>> {
-        // 1. 사용자 메시지 저장 (Non-Blocking, Fire-and-Forget)
-        val saveUserMessageMono: Mono<Void> = if (userId != null) {
-            Mono.fromRunnable<Void> {
-                log.info("AUTHENTICATED: userId({})가 확인되어 사용자 메시지를 저장합니다.", userId)
-                chatLogService.saveUserMessage(userId, userQuery)
-            }.subscribeOn(Schedulers.boundedElastic())
-
-        } else if (guestSessionId != null) {
-            Mono.fromRunnable<Void> {
-                log.info("GUEST: sessionId({})가 확인되어 게스트 메시지 저장을 시도합니다.", guestSessionId)
-                chatLogService.saveGuestMessage(guestSessionId, userQuery)
-            }
-
-        } else {
-            log.warn("SKIP: userId와 sessionId가 모두 null입니다. 메시지 저장을 건너뜁니다.")
-            Mono.empty()
-        }.subscribeOn(Schedulers.boundedElastic())
-
-        // 2. 과거 대화 내역 조회
-        val historyMono: Mono<List<ChatLog>> = if (userId != null) {
-            Mono.fromCallable {
-                chatLogService.getRecentHistory(userId)
-            }.subscribeOn(Schedulers.boundedElastic())
-
-        } else if (guestSessionId != null) {
-            Mono.fromCallable {
-                chatLogService.getRecentGuestHistory(guestSessionId)
-            }
-
-        } else {
-            Mono.just(emptyList())
-        }.subscribeOn(Schedulers.boundedElastic())
-
-        // 저장 완료 후, 기록 조회를 반환
-        return saveUserMessageMono.then(historyMono)
-    }
-
-    /**
-     * 어시스턴트 메시지 저장
-     */
-    private fun saveAssistantMessage(
-        userId: Long?,
-        guestSessionId: String?,
-        answer: String,
-        queryKeywords: List<String>,
-        relatedMovieCds: List<String>
-    ) {
-        val saveMono = if (userId != null) {
-            Mono.fromRunnable<Void> {
-                chatLogService.chatAssistantMessage(
-                    userId = userId,
-                    content = answer,
-                    queryKeywords = queryKeywords,
-                    relatedMovieCds = relatedMovieCds
-                )
-            }
-        } else if (guestSessionId != null) {
-            Mono.fromRunnable<Void> {
-                chatLogService.chatGuestAssistantMessage(
-                    sessionId = guestSessionId,
-                    content = answer,
-                    queryKeywords = queryKeywords,
-                    relatedMovieCds = relatedMovieCds
-                )
-            }
-        } else {
-            Mono.empty()
-        }
-
-        saveMono.subscribeOn(Schedulers.boundedElastic()).subscribe()
-    }
-
-    /**
      * 소스에서 movieCd를 추출하는 유틸리티 함수 (ChatLog 저장을 위해)
      */
     private fun extractMovieCd(source: String): String? {
@@ -345,103 +271,4 @@ class ChatService (
         return cdRegex.find(source)?.groups?.get(1)?.value
     }
 
-    /**
-     * LLM에게 전달할 최종 프롬프트를 생성.
-     * [CONVERSATION HISTORY] + [CONTEXT] + [사용자 질문] 구조
-     */
-    private fun createFullPrompt(
-        userQuery: String,
-        contextChunks: List<MovieEmbeddingDto>,
-        historyList: List<ChatLog>
-    ): String{
-        // 1. 대화 내역 포맷팅
-        val historyString = formatHistory(historyList)
-
-        // 2. RAG Context 포맷팅
-        val contextString = if (contextChunks.isEmpty()) {
-            "제공할 Context 정보가 없습니다."
-        } else {
-            contextChunks.joinToString (separator = "\n---\n"){ dto ->
-                """
-              [검색된 영화 컨텍스트]
-              [메타데이터] ${dto.metaText}
-              [줄거리 청크] ${dto.plotText}
-              """.trimIndent()
-            }
-        }
-
-        // 3. 최종 프롬프트 구성
-        return """
-        [CONVERSATION HISTORY]
-        $historyString
-
-        [CONTEXT]
-        $contextString
-
-        [사용자 질문]
-        $userQuery
-        """.trimIndent()
-    }
-
-    // 과거 대화 내역 리스트(List<ChatLog>)를 LLM 프롬프트에 넣기 좋은 형식으로 변환.
-    private fun formatHistory(historyList: List<ChatLog>): String {
-        if (historyList.isEmpty()) {
-            return "이전 대화 내역이 없습니다."
-        }
-        // ChatLog 엔티티의 'role'과 'content' 필드 사용
-        return historyList.joinToString(separator = "\n") { log ->
-            val role = when (log.role) {
-                org.cinemind.domain.chatbot.enum.MessageRole.USER -> "사용자"
-                org.cinemind.domain.chatbot.enum.MessageRole.ASSISTANT -> "챗봇"
-                else -> log.role.name // SYSTEM 등
-            }
-            "$role: ${log.content}"
-        }
-    }
-
-    // 글로벌 캐시 부분: "대화 맥락에 의존하는 모호한 영화 질문"인지 판별
-    private fun isDeicticMovieQuestion(query: String): Boolean {
-        val normalized = query.replace("\\s+".toRegex(), " ").trim()
-
-        // 1) "그/이 영화" 같은 전형적인 지시 표현이 들어 있는지
-        val deicticPatterns = listOf(
-            "그 영화", "그 영화의", "그 영화에서",
-            "이 영화", "이 영화의", "이 영화에서",
-            "그 작품", "이 작품",
-            "그 드라마", "이 드라마"
-        )
-        val hasDeictic = deicticPatterns.any { normalized.contains(it) }
-
-        return hasDeictic
-    }
-
-    private fun findFocusedMovieTitleFromHistory(history: List<ChatLog>): String? {
-        // 1) 최근 ASSISTANT 응답들 중에서 queryKeywords 가 채워져 있는 것 찾기
-        val lastAssistantWithKeywords = history
-            .asReversed() // 최신 로그부터 거꾸로
-            .firstOrNull { log ->
-                log.role == org.cinemind.domain.chatbot.enum.MessageRole.ASSISTANT &&
-                        log.keywordList().isNotEmpty()
-            }
-
-        if (lastAssistantWithKeywords != null) {
-            // 첫 번째 키워드를 "대표 영화"로 사용 (예: "모아나 2")
-            return lastAssistantWithKeywords.keywordList().firstOrNull()
-        }
-
-        // 2) 그래도 없으면 USER/ASSISTANT 가리지 않고 키워드 있는 마지막 로그 사용
-        val lastWithKeywords = history
-            .asReversed()
-            .firstOrNull { it.keywordList().isNotEmpty() }
-
-        return lastWithKeywords?.keywordList()?.firstOrNull()
-    }
-
-    private fun ChatLog.keywordList(): List<String> {
-        return this.queryKeywords
-            ?.split(",")                // "모아나 2, 마우이, 애니메이션"
-            ?.map { it.trim() }         // 공백 제거
-            ?.filter { it.isNotBlank() } // 빈 문자열 제거
-            ?: emptyList()
-    }
 }
