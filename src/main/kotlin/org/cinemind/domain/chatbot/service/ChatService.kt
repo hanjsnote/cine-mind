@@ -158,6 +158,22 @@ class ChatService (
                             // 지시어("그 영화 ~") 질문인지 먼저 판별
                             val isDeictic = isDeicticMovieQuestion(userQuery)
 
+                            // 콜드 스타트 + 지시어인 경우: 바로 안내 메시지 리턴
+                            val hasAnyKeywords = historyList.any { it.keywordList().isNotEmpty() }
+                            if (isDeictic && !hasAnyKeywords) {
+                                log.info("지시어 질문이지만 대화 내역이 없는 콜드 스타트입니다. RAG를 실행하지 않고 안내 메시지를 반환합니다. query={}", userQuery)
+
+                                val response = ChatLLMResponse(
+                                    answer = "어떤 영화를 말씀하시는지 아직 알 수 없어요. 영화 제목을 알려주시면 줄거리를 찾아드릴게요.",
+                                    sources = emptyList()
+                                )
+
+                                // 캐시는 안 써도 되니까 키워드 리스트는 비워서 넘겨 줌
+                                return@flatMap Mono.just(
+                                    Triple(response, emptyList<String>(), vector)
+                                )
+                            }
+
                             // 4-2. Context 확보
                             val contextMono = Mono.fromCallable {
                                 if (isDeictic) {
