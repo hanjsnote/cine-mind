@@ -109,7 +109,7 @@ class ChatService (
                 }
             }
             .doOnError { e ->
-                log.error("!!! ERROR: [Step 2: Cache Lookup] 캐시 조회 중 오류 발생: {}", e.message)
+                log.error("!!! ERROR: [Cache Lookup] 캐시 조회 중 오류 발생: {}", e.message)
             }
             .cache() // 캐시 조회 결과도 캐싱
 
@@ -117,68 +117,121 @@ class ChatService (
          * 3) 캐시 HIT → 바로 응답
          * 4) 캐시 MISS → RAG 전체 파이프라인 실행
          */
+        // 캐시 / RAG 공통으로 쓸 user 메시지 저장 + 대화 내역 조회
+        val historyMono: Mono<List<ChatLog>> = getHistoryAndSaveMessage(userId, guestSessionId, userQuery)
+            .doOnError { e -> log.error("!!! ERROR: 대화 내역 조회/저장 중 오류 발생: {}\", e.message", e.message) }
+            .onErrorReturn(emptyList())
+            .cache()
+
         val finalResponseMono: Mono<ChatLLMResponse> = cacheResponseMono
             // ** [Cache HIT] **
-            .map { cachedResponse ->
-                log.info("L2 Semantic Cache HIT. 응답을 즉시 반환합니다.")
-                ChatLLMResponse(
-                    answer = cachedResponse.answer,
-                    sources = emptyList()
+            .flatMap { cachedResponse ->
+                historyMono.then(   // user 메시지 저장 완료까지 기다렸다가
+                    Mono.fromCallable {
+                        // assistant 로그도 남겨 둔다 (키워드는 일단 비워도 됨)
+                        saveAssistantMessage(
+                            userId,
+                            guestSessionId,
+                            cachedResponse.answer,
+                            emptyList(),
+                            emptyList()
+                        )
+                        ChatLLMResponse(
+                            answer = cachedResponse.answer,
+                            sources = emptyList()
+                        )
+                    }.subscribeOn(Schedulers.boundedElastic())
                 )
             }
+
             // ** [Cache MISS] - Full RAG Pipeline 실행 **
             .switchIfEmpty(
                 Mono.defer {
                     log.info("L2 Semantic Cache MISS. Full RAG 파이프라인을 실행합니다.")
 
-                    // 4-1. 대화 메모리 조회 + 사용자 메시지 저장
-                    val historyAndSaveMono = getHistoryAndSaveMessage(userId, guestSessionId, userQuery)
-                        .doOnError { e -> log.error("!!! ERROR: [Step 4-1] 대화 내역 조회/저장 중 오류 발생: {}", e.message) }
-                        .onErrorReturn(emptyList())
-
-                    // 4-2. (RAG) Retrieval, Augmentation, Generation 통합 실행
-                    Mono.zip(historyAndSaveMono, queryVectorMono)
+                    // 4-1. (RAG) Retrieval, Augmentation, Generation 통합 실행
+                    Mono.zip(historyMono, queryVectorMono)
                         .flatMap { tuple ->
-                            val historyList = tuple.t1 // 튜플의 첫 번째 요소: List<ChatLog>
-                            val vector = tuple.t2    // 튜플의 두 번째 요소: FloatArray (재사용)
+                            val historyList = tuple.t1
+                            val vector = tuple.t2
 
-                            // 4-3. Context 확보: 이미 생성된 벡터 사용
+                            // 지시어("그 영화 ~") 질문인지 먼저 판별
+                            val isDeictic = isDeicticMovieQuestion(userQuery)
+
+                            // 콜드 스타트 + 지시어인 경우: 바로 안내 메시지 리턴
+                            val hasAnyKeywords = historyList.any { it.keywordList().isNotEmpty() }
+                            if (isDeictic && !hasAnyKeywords) {
+                                log.info("지시어 질문이지만 대화 내역이 없는 콜드 스타트입니다. RAG를 실행하지 않고 안내 메시지를 반환합니다. query={}", userQuery)
+
+                                val response = ChatLLMResponse(
+                                    answer = "어떤 영화를 말씀하시는지 아직 알 수 없어요. 영화 제목을 알려주시면 줄거리를 찾아드릴게요.",
+                                    sources = emptyList()
+                                )
+
+                                // 캐시는 안 써도 되니까 키워드 리스트는 비워서 넘겨 줌
+                                return@flatMap Mono.just(
+                                    Triple(response, emptyList<String>(), vector)
+                                )
+                            }
+
+                            // 4-2. Context 확보
                             val contextMono = Mono.fromCallable {
-                                ragRetrievalService.retrieveRelevantContext(vector)
+                                if (isDeictic) {
+                                    // 대화 내역에서 가장 최근에 다룬 영화 제목 찾기
+                                    val focusedTitle = findFocusedMovieTitleFromHistory(historyList)
+
+                                    if (focusedTitle != null) {
+                                        log.info("지시어 질문으로 판단되어, 최근 영화 '{}' 제목으로 RAG 검색을 수행합니다.", focusedTitle)
+
+                                        // 영화 제목을 벡터화해서 검색
+                                        val titleVector = ragEmbeddingClient.getEmbedding(focusedTitle)
+                                        ragRetrievalService.retrieveRelevantContext(titleVector)
+                                    } else {
+                                        log.info("지시어 질문이지만 대화 내역에서 영화 제목을 찾지 못했습니다. 원래 쿼리 벡터로 검색합니다.")
+                                        ragRetrievalService.retrieveRelevantContext(vector)
+                                    }
+                                } else {
+                                    // 일반 질문은 기존처럼 현재 질문 벡터로 검색
+                                    ragRetrievalService.retrieveRelevantContext(vector)
+                                }
                             }.subscribeOn(Schedulers.boundedElastic())
 
                             contextMono.flatMap { contextChunks ->
-                                // 4-4. 최종 프롬프트 생성
+                                // 4-3. 최종 프롬프트 생성
                                 val fullPrompt = createFullPrompt(userQuery, contextChunks, historyList)
 
-                                // 4-5. LLM 호출
+                                // 4-4. LLM 호출
                                 openAiClient.getChatCompletion(
                                     SYSTEM_INSTRUCTION,
                                     fullPrompt,
                                     LlmStructuredResponse::class.java
                                 ).map { structuredResponse ->
-                                    // LLM 응답 후, Triple로 묶어 다음 단계로 전달
                                     val sources = contextChunks.map {
+                                        // LLM 응답 후, Triple로 묶어 다음 단계로 전달
                                         "[메타데이터] ${it.metaText}\n[줄거리] ${it.plotText}"
                                     }
                                     val chatResponse = ChatLLMResponse(
                                         answer = structuredResponse.answer,
                                         sources = sources
                                     )
-                                    Triple(chatResponse, structuredResponse.queryKeywords, vector) // 벡터도 함께 전달
-                                }.doOnError { e ->
-                                    log.error("!!! FATAL ERROR: LLM API 호출 또는 JSON 파싱 실패: {}", e.message)
-                                    throw RuntimeException("LLM 생성 실패")
+                                    Triple(chatResponse, structuredResponse.queryKeywords, vector)
                                 }
                             }
                         }
                         .doOnSuccess { (chatResponse, queryKeywords, queryVector) ->
+
+                            val ambiguous = isDeicticMovieQuestion(userQuery)
+
                             /**
-                             * 5) 성공적으로 응답 생성 → 캐시 저장
+                             * 5) 성공적으로 응답 생성 → 모호하지 않은 쿼리만 글로벌 캐시 저장(예: '그 영화 줄거리가 뭐지?'는 캐시 저장 안함)
                              */
-                            Mono.fromRunnable<Void> {
-                                chatCacheService.writeResponse(queryVector, chatResponse)
-                            }.subscribeOn(Schedulers.boundedElastic()).subscribe()
+                            if (!ambiguous) {
+                                Mono.fromRunnable<Void> {
+                                    chatCacheService.writeResponse(queryVector, chatResponse)
+                                }.subscribeOn(Schedulers.boundedElastic()).subscribe()
+                            } else {
+                                log.info("모호한 질문은 캐시 저장을 건너뜁니다. query='{}'", userQuery)
+                            }
 
                             /**
                              * 6) 챗봇 응답 저장
@@ -292,7 +345,6 @@ class ChatService (
         return cdRegex.find(source)?.groups?.get(1)?.value
     }
 
-
     /**
      * LLM에게 전달할 최종 프롬프트를 생성.
      * [CONVERSATION HISTORY] + [CONTEXT] + [사용자 질문] 구조
@@ -345,5 +397,51 @@ class ChatService (
             }
             "$role: ${log.content}"
         }
+    }
+
+    // 글로벌 캐시 부분: "대화 맥락에 의존하는 모호한 영화 질문"인지 판별
+    private fun isDeicticMovieQuestion(query: String): Boolean {
+        val normalized = query.replace("\\s+".toRegex(), " ").trim()
+
+        // 1) "그/이 영화" 같은 전형적인 지시 표현이 들어 있는지
+        val deicticPatterns = listOf(
+            "그 영화", "그 영화의", "그 영화에서",
+            "이 영화", "이 영화의", "이 영화에서",
+            "그 작품", "이 작품",
+            "그 드라마", "이 드라마"
+        )
+        val hasDeictic = deicticPatterns.any { normalized.contains(it) }
+
+        return hasDeictic
+    }
+
+    private fun findFocusedMovieTitleFromHistory(history: List<ChatLog>): String? {
+        // 1) 최근 ASSISTANT 응답들 중에서 queryKeywords 가 채워져 있는 것 찾기
+        val lastAssistantWithKeywords = history
+            .asReversed() // 최신 로그부터 거꾸로
+            .firstOrNull { log ->
+                log.role == org.cinemind.domain.chatbot.enum.MessageRole.ASSISTANT &&
+                        log.keywordList().isNotEmpty()
+            }
+
+        if (lastAssistantWithKeywords != null) {
+            // 첫 번째 키워드를 "대표 영화"로 사용 (예: "모아나 2")
+            return lastAssistantWithKeywords.keywordList().firstOrNull()
+        }
+
+        // 2) 그래도 없으면 USER/ASSISTANT 가리지 않고 키워드 있는 마지막 로그 사용
+        val lastWithKeywords = history
+            .asReversed()
+            .firstOrNull { it.keywordList().isNotEmpty() }
+
+        return lastWithKeywords?.keywordList()?.firstOrNull()
+    }
+
+    private fun ChatLog.keywordList(): List<String> {
+        return this.queryKeywords
+            ?.split(",")                // "모아나 2, 마우이, 애니메이션"
+            ?.map { it.trim() }         // 공백 제거
+            ?.filter { it.isNotBlank() } // 빈 문자열 제거
+            ?: emptyList()
     }
 }
