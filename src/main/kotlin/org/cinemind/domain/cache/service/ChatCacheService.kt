@@ -49,7 +49,6 @@ class ChatCacheService (
             val misses = missCount.incrementAndGet()
             val hits = hitCount.get()
             val ratio = if (hits + misses == 0) 0.0 else hits.toDouble() / (hits + misses)
-            log.info("Semantic Cache MISS.")
             log.info(
                 "Semantic Cache MISS. hit={}, miss={}, hitRatio={}",
                 hits,
