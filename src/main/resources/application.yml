@@ -11,7 +11,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -46,9 +46,18 @@ rag:
     chunk-size: 300
     chunk-overlap: 50
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
 logging:
   level:
     # ChatService가 포함된 패키지의 로그 레벨을 DEBUG로 설정
-    com.cinemind: DEBUG
+    org.cinemind: DEBUG
     org.springframework.security: DEBUG
 

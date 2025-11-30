@@ -53,6 +53,8 @@ dependencies {
     // Testcontainers 의존성 추가 (PostgreSQL 및 JUnit 5 통합)
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    // 헬스체크
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
 }
 
 kotlin {
