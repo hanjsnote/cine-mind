@@ -49,7 +49,7 @@ class SecurityConfig (
                     // /auth로 시작하는 모든 요청 허용 (회원가입, 로그인 등)
                     .requestMatchers("/api/auth/**").permitAll()
                     // 기타 공개 엔드포인트
-                    .requestMatchers("/open", "/health", "/api/chat").permitAll()
+                    .requestMatchers("/open", "/api/health", "/api/chat").permitAll()
                     // CORS 프리플라이트 옵션 허용
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     // 나머지 모든 요청은 인증 필요
