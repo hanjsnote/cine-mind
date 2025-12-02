@@ -1,14 +1,7 @@
-server:
-  port: 8080
-
 spring:
-  application:
-    name: cine-mind
-  datasource:
-    url: jdbc:postgresql://localhost:5432/${DB_NAME}
-    username: ${DB_USER}
-    password: ${DB_USER_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+  profiles:
+    default: local
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -16,11 +9,13 @@ spring:
     properties:
       hibernate:
         format_sql: true
-  data:
-    redis:
-      host: localhost # Redis 서버의 호스트 주소 (예: localhost 또는 컨테이너 이름)
-      port: 6379           # Redis 서버의 포트 번호 (기본값)
 
+server:
+  port: 8080
+
+# ===============================================
+# 공통 외부 설정 (모든 환경에 동일하게 적용)
+# ===============================================
 jwt:
   secret:
     key: ${JWT_SECRET_KEY}
