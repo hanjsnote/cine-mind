@@ -46,17 +46,30 @@ class SecurityConfig (
             // 요청별 권한 제어
             .authorizeHttpRequests { auth ->
                 auth
-                    // /auth로 시작하는 모든 요청 허용 (회원가입, 로그인 등)
-                    .requestMatchers("/api/auth/**").permitAll()
-                    // 기타 공개 엔드포인트
-                    .requestMatchers("/open", "/api/health", "/api/chat").permitAll()
+                    // 프론트엔드/정적 파일 접근 허용
+                    // 브라우저에서 http://3.39.99.136:8080/ 접속 시 필요.
+                    .requestMatchers(
+                        "/",   // 루트 경로 (액세스 거부 문제 해결)
+                        "/index.html",    // HTML 파일
+                        "/css/**",        // CSS 파일
+                        "/js/**",         // JavaScript 파일
+                        "/images/**",     // 이미지 파일
+                        "/error"          // Spring 기본 에러 페이지
+                    ).permitAll()
+
+                    // 공개 API 엔드포인트 허용
+                    .requestMatchers("/api/auth/**").permitAll() // 회원가입, 로그인
+                    .requestMatchers("/open", "/api/health", "/api/chat").permitAll() // 헬스 체크, 채팅(비로그인 가능 시)
+
                     // CORS 프리플라이트 옵션 허용
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                     // 나머지 모든 요청은 인증 필요
                     .anyRequest().authenticated()
             }
             .build()
     }
+
     // CORS 전역설정
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
