@@ -1,11 +1,5 @@
 package org.cinemind.domain.health
 
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory
-import io.lettuce.core.api.sync.RedisCommands
-import io.lettuce.core.codec.ByteArrayCodec
-import io.lettuce.core.output.NestedMultiOutput
-import io.lettuce.core.protocol.CommandArgs
-import io.lettuce.core.protocol.ProtocolKeyword
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
