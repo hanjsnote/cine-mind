@@ -56,3 +56,9 @@ logging:
     org.cinemind: DEBUG
     org.springframework.security: DEBUG
 
+# ===============================================
+# 관리자 계정 초기화 설정
+# ===============================================
+admin:
+  email: ${ADMIN_EMAIL}
+  password: ${ADMIN_PASSWORD}

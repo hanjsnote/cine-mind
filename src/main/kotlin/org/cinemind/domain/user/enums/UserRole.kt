@@ -4,7 +4,8 @@ import org.cinemind.common.dto.authuser.AuthUser
 import java.util.Arrays
 
 enum class UserRole(val userRole: String){
-    ROLE_USER(Authority.USER);
+    ROLE_USER(Authority.USER),
+    ROLE_ADMIN(Authority.ADMIN);
 
     //companion object는 자바의 static 메서드/필드 역할을 한다. of()를 static 처럼 사용함
     companion object {
@@ -17,6 +18,7 @@ enum class UserRole(val userRole: String){
     }
     object Authority {
         const val USER = "ROLE_USER"
+        const val ADMIN = "ROLE_ADMIN"
     }
 }
 

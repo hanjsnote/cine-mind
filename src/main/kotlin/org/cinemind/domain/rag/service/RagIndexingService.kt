@@ -1,6 +1,7 @@
 package org.cinemind.domain.rag.service
 
 import jakarta.transaction.Transactional
+import org.cinemind.common.dto.authuser.AuthUser
 import org.cinemind.common.exception.CommonErrorCode
 import org.cinemind.common.exception.GlobalException
 import org.cinemind.domain.movie.entity.Movie
@@ -25,7 +26,7 @@ class RagIndexingService (
 
     // 전체 영화 데이터를 RAG 벡터 스토어에 인덱싱
     @Transactional
-    fun rebuildAllIndexes(): Int {
+    fun rebuildAllIndexes(authUser: AuthUser): Int {
         log.warn("!!! [RAG] 전체 벡터 인덱스 재구축을 시작합니다. 기존 데이터 삭제 후 모든 영화를 대상으로 수행됩니다. !!!")
 
         // 기존 임베딩 데이터가 있다면 삭제
@@ -45,27 +46,13 @@ class RagIndexingService (
 
         log.info("[RAG] 전체 인덱스 재구축 완료. 총 {}개의 영화가 인덱싱되었습니다.", indexedCount)
         return indexedCount
-
-//        val allEmbeddingEntities = mutableListOf<MovieEmbedding>()
-//
-//        // 각 영화 DTO에 대해 청크 분할 및 임베딩 작업 수행
-//        movieRagDtos.forEach { dto ->
-//            // 청크를 생성하고 임베딩하는 작업 수행
-//            val embeddingDtos = createChunkAndEmbeddings(dto)
-//
-//            // 생성된 임베딩 DTO들을 엔티티로 변환하여 저장
-//            val embeddingEntities = embeddingDtos.map { toEntity(it, allMoviesMap) }
-//            allEmbeddingEntities.addAll(embeddingEntities)
-//        }
-//
-//        // 모든 엔티티를 모아서 한 번에 저장
-//        movieEmbeddingRepository.saveAll(allEmbeddingEntities)
     }
 
     // Movie 테이블에는 있지만 MovieEmbedding 테이블에는 없는 (신규) 영화만 찾아서 인덱싱
     @Transactional
-    fun indexNewMovies(): Int {
-        log.info("[RAG] 신규 영화 데이터 증분 인덱싱을 시작합니다.")
+    fun indexNewMovies(authUser: AuthUser?): Int {
+        val caller = authUser?.id ?: "Scheduler" // 호출 주체 구분
+        log.info("[RAG] {}가 신규 영화 데이터 증분 인덱싱을 시작합니다.", caller)
 
         // 이미 인덱싱된 영화 ID 목록을 조회
         val existingMovieIds = movieEmbeddingRepository.findAll().mapNotNull { it.movie.id }.toSet()
