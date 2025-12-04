@@ -15,6 +15,7 @@ import org.cinemind.domain.user.enums.UserRole
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.Authentication
+import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
@@ -102,12 +103,15 @@ class JwtAuthenticationFilter (
         //커스텀 claim에서 사용자 권한 정보를 추출하여 enum으로 변환
         val userRole = UserRole.of(claims.get("userRole", String::class.java))
 
+        // Spring Security에서 인식할 수 있도록 UserRole의 이름을 SimpleGrantedAuthority 객체로 변환.
+        val authorities = listOf(SimpleGrantedAuthority(userRole.name))
+
         //추출한 정보로 인증된 사용자 객체 생성
         val authUser: AuthUser = AuthUser(userId, email, userRole)
 
         //Spring Security가 인식할 수 있는 Authentication 객체 생성
-        //권한 목록은 필요하다면 여기서 설정 (현재는 비어 있는 리스트)
-        val authenticationToken: Authentication = JwtAuthenticationToken(authUser, emptyList())
+        //권한 목록(authorities)을 authorities 리스트로 전달
+        val authenticationToken: Authentication = JwtAuthenticationToken(authUser, authorities)
         //SecurityContext에 인증 정보 저장 - 이후 @AuthenticationPrincipal로 접근 가능
         SecurityContextHolder.getContext().authentication = authenticationToken
     }
