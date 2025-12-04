@@ -11,6 +11,7 @@ import org.cinemind.domain.rag.dto.model.MovieRagDto
 import org.cinemind.domain.rag.entity.MovieEmbedding
 import org.cinemind.domain.rag.repository.MovieEmbeddingRepository
 import org.cinemind.util.PlotTextSplitter
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
@@ -20,10 +21,17 @@ class RagIndexingService (
     private val ragEmbeddingClient: RagEmbeddingClient,  // 임베딩 클라이언트
     private val plotTextSplitter: PlotTextSplitter // 줄거리 청크 분할 로직
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     // 전체 영화 데이터를 RAG 벡터 스토어에 인덱싱
     @Transactional
-    fun indexAllMovies() {
-       // Fetch Join이 적용된 findAll()을 사용하여 N+1 방지
+    fun rebuildAllIndexes(): Int {
+        log.warn("!!! [RAG] 전체 벡터 인덱스 재구축을 시작합니다. 기존 데이터 삭제 후 모든 영화를 대상으로 수행됩니다. !!!")
+
+        // 기존 임베딩 데이터가 있다면 삭제
+        movieEmbeddingRepository.deleteAll()
+
+        // Fetch Join이 적용된 findAll()을 사용하여 N+1 방지
         val allMovies = movieRepository.findAll()
 
         // 모든 Movie 엔티티를 미리 조회하여 Map<Long, Movie>로 구성
@@ -33,23 +41,79 @@ class RagIndexingService (
         // 전체 Movie 엔티티를 조회하고 MovieRagDto로 변환
         val movieRagDtos = allMovies.map { MovieRagDto.from(it) }
 
-        // 기존 임베딩 데이터가 있다면 삭제
-        movieEmbeddingRepository.deleteAll()
+        val indexedCount = processAndSaveEmbeddings(movieRagDtos, allMoviesMap)
 
-        val allEmbeddingEntities = mutableListOf<MovieEmbedding>()
+        log.info("[RAG] 전체 인덱스 재구축 완료. 총 {}개의 영화가 인덱싱되었습니다.", indexedCount)
+        return indexedCount
 
-        // 각 영화 DTO에 대해 청크 분할 및 임베딩 작업 수행
-        movieRagDtos.forEach { dto ->
-            // 청크를 생성하고 임베딩하는 작업 수행
-            val embeddingDtos = createChunkAndEmbeddings(dto)
+//        val allEmbeddingEntities = mutableListOf<MovieEmbedding>()
+//
+//        // 각 영화 DTO에 대해 청크 분할 및 임베딩 작업 수행
+//        movieRagDtos.forEach { dto ->
+//            // 청크를 생성하고 임베딩하는 작업 수행
+//            val embeddingDtos = createChunkAndEmbeddings(dto)
+//
+//            // 생성된 임베딩 DTO들을 엔티티로 변환하여 저장
+//            val embeddingEntities = embeddingDtos.map { toEntity(it, allMoviesMap) }
+//            allEmbeddingEntities.addAll(embeddingEntities)
+//        }
+//
+//        // 모든 엔티티를 모아서 한 번에 저장
+//        movieEmbeddingRepository.saveAll(allEmbeddingEntities)
+    }
 
-            // 생성된 임베딩 DTO들을 엔티티로 변환하여 저장
-            val embeddingEntities = embeddingDtos.map { toEntity(it, allMoviesMap) }
-            allEmbeddingEntities.addAll(embeddingEntities)
+    // Movie 테이블에는 있지만 MovieEmbedding 테이블에는 없는 (신규) 영화만 찾아서 인덱싱
+    @Transactional
+    fun indexNewMovies(): Int {
+        log.info("[RAG] 신규 영화 데이터 증분 인덱싱을 시작합니다.")
+
+        // 이미 인덱싱된 영화 ID 목록을 조회
+        val existingMovieIds = movieEmbeddingRepository.findAll().mapNotNull { it.movie.id }.toSet()
+
+        // 전체 영화 목록 중 인덱싱 되지 않은 영화를 필터링
+        val newMovies = movieRepository.findAll().filter {
+            it.id != null && !existingMovieIds.contains(it.id)
         }
-        
+
+        if (newMovies.isEmpty()) {
+            log.info("[RAG] 새로 인덱싱할 영화 데이터가 없습니다. 증분 인덱싱을 종료합니다.")
+            return 0
+        }
+
+        log.info("[RAG] 총 {}개의 신규 영화를 대상으로 인덱싱을 진행합니다.", newMovies.size)
+
+        val newMoviesMap = newMovies.associateBy { it.id!! }
+        val newMovieRagDtos = newMovies.map { MovieRagDto.from(it) }
+
+        val indexedCount = processAndSaveEmbeddings(newMovieRagDtos, newMoviesMap)
+
+        log.info("[RAG] 신규 영화 증분 인덱싱 완료. 총 {}개의 영화가 인덱싱되었습니다.", indexedCount)
+        return indexedCount
+    }
+
+    // 인덱싱 로직의 중복을 제거하기 위한 공통 함수
+    private fun processAndSaveEmbeddings(movieRagDtos: List<MovieRagDto>, movieMap: Map<Long, Movie>): Int {
+        val allEmbeddingEntities = mutableListOf<MovieEmbedding>()
+        var indexedMovieCount = 0
+
+        movieRagDtos.forEach { dto ->
+            try {
+                // 청크를 생성하고 임베딩하는 작업 수행
+                val embeddingDtos = createChunkAndEmbeddings(dto)
+
+                // 생성된 임베딩 DTO들을 엔티티로 변환하여 저장
+                val embeddingEntities = embeddingDtos.map { toEntity(it, movieMap) }
+                allEmbeddingEntities.addAll(embeddingEntities)
+                indexedMovieCount++
+            } catch (e: Exception) {
+                log.error("Movie ID ${dto.id} (${dto.movieNm}) 인덱싱 중 오류 발생: {}", e.message)
+                // 오류가 발생한 영화는 건너뛰고 다음 영화를 처리
+            }
+        }
+
         // 모든 엔티티를 모아서 한 번에 저장
         movieEmbeddingRepository.saveAll(allEmbeddingEntities)
+        return indexedMovieCount
     }
 
     // MovieRagDto를 기반으로 meta/plot 텍스트 청크를 생성하고 멀티-벡터 전략 임베딩을 수행하는 로직
