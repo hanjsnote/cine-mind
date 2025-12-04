@@ -18,8 +18,9 @@ import org.cinemind.domain.user.enums.UserRole
 @Table(name = "users")
 class User(
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     val email: String,
+    @Column(nullable = false)
     val password: String,
     @Enumerated(EnumType.STRING)
     val userRole: UserRole = UserRole.ROLE_USER
