@@ -2,6 +2,7 @@ package org.cinemind.config.security
 
 import org.cinemind.config.jwt.JwtAuthenticationFilter
 import org.cinemind.config.jwt.JwtUtil
+import org.cinemind.domain.user.enums.UserRole
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -48,6 +49,8 @@ class SecurityConfig (
                 auth
                     // /auth로 시작하는 모든 요청 허용 (회원가입, 로그인 등)
                     .requestMatchers("/api/auth/**").permitAll()
+                    // 관리자(admin) 인덱싱 엔드포인트
+                    .requestMatchers("/api/rebuild-all", "/api/incremental").hasAuthority(UserRole.Authority.ADMIN)
                     // 기타 공개 엔드포인트
                     .requestMatchers("/open", "/api/health", "/api/chat").permitAll()
                     // CORS 프리플라이트 옵션 허용
