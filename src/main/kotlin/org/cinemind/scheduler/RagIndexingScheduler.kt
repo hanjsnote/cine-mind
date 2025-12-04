@@ -1,7 +1,7 @@
 package org.cinemind.scheduler
 
 import org.cinemind.domain.rag.service.RagIndexingService
-import org.springframework.boot.CommandLineRunner
+import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component
 class RagIndexingScheduler (
     private  val ragIndexingService: RagIndexingService
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
     // 테스트를 위해 시작 후 1분 뒤 실행 (cron 표현식: "초 분 시 일 월 요일")
     // 현재: 매분 0초에 실행되도록 임시 변경 (테스트 용도)
     @Scheduled(cron = "0 * * * * ?") // 매분 0초마다 실행
@@ -23,10 +24,10 @@ class RagIndexingScheduler (
         println("--- [RAG] 월별 신규 영화 데이터 인덱싱 작업을 시작합니다 ---")
         try {
             // 새로 추가된 영화 데이터만 증분 인덱싱
-            ragIndexingService.indexNewMovies()
-            println("--- [RAG] 월별 신규 영화 데이터 인덱싱 작업 완료 ---")
+            val indexedCount = ragIndexingService.indexNewMovies(null)
+            log.info("--- [RAG Scheduler] 월별 신규 영화 데이터 인덱싱 작업 완료. (총 {}개 인덱싱) ---", indexedCount)
         } catch (e: Exception) {
-            println("--- [RAG] 신규 영화 데이터 인덱싱 중 오류 발생: ${e.message}")
+            log.error("--- [RAG Scheduler] 신규 영화 데이터 인덱싱 중 오류 발생: {}", e.message)
         }
     }
 }

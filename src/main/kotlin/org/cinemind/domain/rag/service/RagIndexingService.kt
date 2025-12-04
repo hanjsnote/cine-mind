@@ -50,8 +50,9 @@ class RagIndexingService (
 
     // Movie 테이블에는 있지만 MovieEmbedding 테이블에는 없는 (신규) 영화만 찾아서 인덱싱
     @Transactional
-    fun indexNewMovies(authUser: AuthUser): Int {
-        log.info("[RAG] 신규 영화 데이터 증분 인덱싱을 시작합니다.")
+    fun indexNewMovies(authUser: AuthUser?): Int {
+        val caller = authUser?.id ?: "Scheduler" // 호출 주체 구분
+        log.info("[RAG] {}가 신규 영화 데이터 증분 인덱싱을 시작합니다.", caller)
 
         // 이미 인덱싱된 영화 ID 목록을 조회
         val existingMovieIds = movieEmbeddingRepository.findAll().mapNotNull { it.movie.id }.toSet()
