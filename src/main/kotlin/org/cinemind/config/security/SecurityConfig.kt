@@ -64,7 +64,11 @@ class SecurityConfig (
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val config = CorsConfiguration()
-        config.allowedOrigins = listOf("http://localhost:5173")
+        config.allowedOrigins = listOf(
+            "http://localhost:5173", // 기존 로컬 개발 환경
+            "https://cinemind.me", // 프로덕션 주소 1
+            "https://www.cinemind.me" // 프로덕션 주소 2
+        )
         config.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
         config.allowedHeaders = listOf("*")
         config.allowCredentials = true
