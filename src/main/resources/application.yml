@@ -12,6 +12,7 @@ spring:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 # ===============================================
 # 공통 외부 설정 (모든 환경에 동일하게 적용)
