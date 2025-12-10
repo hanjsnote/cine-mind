@@ -1,32 +1,37 @@
+# Actions 이름 github 페이지에서 볼 수 있다.
 name: CI Pipeline
 
+# Event Trigger : push / pull_request 시 CI 실행
 on:
   push:
+    # 배열로 여러 브랜치를 넣을 수 있다.
     branches: [ main, dev, feature/*, fix/*, workflow ]
   pull_request:
     branches:
-      - main
+      - main # -로 여러 브랜치를 명시하는 것도 가능
       - dev
       - workflow
 
 jobs:
-  # =========================
-  # 1) CI: 빌드 + 테스트
-  #    - GitHub 호스트 러너에서만 수행
-  # =========================
+  # ===== CI : 빌드 + 테스트 =====
   build:
+    # 스크립트 실행 환경 (OS)
+    # 배열로 선언시 개수 만큼 반복해서 실행한다.
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      # 코드 체크아웃
+      - name: checkout Code
         uses: actions/checkout@v4
 
-      - name: Java setup
+      # Java 17 설치
+      - name: java setup
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # Gradle 캐시 (빌드 속도 개선)
       - name: Cache Gradle Dependencies
         uses: actions/cache@v4
         with:
@@ -37,9 +42,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      # gradlew 실행권한 부여
       - name: Make executable gradlew
         run: chmod +x ./gradlew
 
+      # 빌드 + 테스트
       - name: Build with Gradle and Run Tests
         env:
           SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
@@ -49,56 +56,71 @@ jobs:
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         run: ./gradlew clean build
 
-      # 만들어진 JAR 파일 이름 찾기
-      - name: Find JAR file
-        id: jar
-        run: |
-          JAR_FILE=$(ls build/libs | grep '.jar' | head -n 1)
-          echo "JAR_FILE=$JAR_FILE" >> $GITHUB_OUTPUT
-          echo "Jar file: $JAR_FILE"
-
-      # 빌드 결과물을 아티팩트로 업로드
-      - name: Upload JAR artifact
+          # JAR 파일을 아티팩트로 저장하여 deploy Job으로 전달
+      - name: Upload JAR Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-jar
-          path: build/libs/${{ steps.jar.outputs.JAR_FILE }}
+          name: spring-boot-app
+          path: build/libs/*.jar
+          retention-days: 1 # 아티팩트 보존 기간 설정
 
-  # =========================
-  # 2) CD: EC2 로 배포
-  #    - EC2 self-hosted 러너에서 실행
-  #    - 빌드는 안 하고, 위에서 만든 JAR만 사용
-  # =========================
+  # ===== CD : EC2 자동 배포 =====
   deploy:
     name: Deploy to EC2
     runs-on: [self-hosted, linux]
+    needs: build              # build job 성공해야만 실행
 
-    # build job 성공해야 실행
-    needs: build
-
-    # push 이면서 브랜치가 main 또는 dev 일 때만 배포
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    # main 또는 dev 브랜치로 push 될 때만 실행
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
 
     steps:
-      # 아티팩트 다운로드 (self-hosted 러너 = EC2에서)
-      - name: Download JAR artifact
+      # build Job에서 생성된 아티팩트 다운로드
+      - name: Download JAR Artifact
         uses: actions/download-artifact@v4
         with:
-          name: app-jar
-          path: ./deploy-jar
+          name: spring-boot-app
+          path: build/libs/
 
-      # 기존 애플리케이션 중지 (실행 중이면)
-      - name: Stop current app (if running)
+      # build/libs 안에서 부트 JAR 파일 찾기
+      # 다운로드 된 아티팩트 경로에서 JAR 파일을 찾는다.
+      - name: Find JAR file
+        id: jar
         run: |
+          # 다운로드된 아티팩트는 'build/libs/' 아래에 저장됨
+          JAR_FILE=$(ls build/libs | grep 'SNAPSHOT.jar$' | head -n 1)
+          
+          if [ -z "$JAR_FILE" ]; then
+            JAR_FILE=$(ls build/libs | grep '.jar$' | head -n 1)
+          fi
+          
+          echo "JAR_FILE=$JAR_FILE" >> $GITHUB_OUTPUT
+          echo "Jar file: $JAR_FILE"
+
+      # EC2 접속용 SSH 키 셋업 (GitHub Secrets에서 읽기)
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/cinemind.pem
+          chmod 600 ~/.ssh/cinemind.pem
+
+      # JAR 파일을 EC2로 전송
+      - name: Copy JAR to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/cinemind.pem \
+            "build/libs/${{ steps.jar.outputs.JAR_FILE }}" \
+            ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar
+
+      # EC2에서 기존 프로세스 종료 후 새 JAR 실행
+      # nohup 명령어에 '&'만 남기지 않도록 문장 끝에 백슬래시를 추가.
+      - name: Restart backend on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/cinemind.pem ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
           pkill -f 'cine-mind-0.0.1-SNAPSHOT.jar' || true
-
-      # JAR 배포 경로로 복사
-      - name: Copy JAR into deploy path
-        run: |
-          cp ./deploy-jar/*.jar /home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar
-
-      # 새 JAR 실행
-      - name: Start app with nohup
-        run: |
+          
+          # [중요] prod 환경 DB 설정을 위한 환경 변수 (Secrets)를 사용하거나,
+          # application-prod.yml이 JAR 안에 포함되어 있는지 확인해야 합니다.
           nohup java -jar /home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar \
-            --spring.profiles.active=prod > /home/ubuntu/app.log 2>&1 &
+            --spring.profiles.active=prod > app.log 2>&1 &
+          EOF
