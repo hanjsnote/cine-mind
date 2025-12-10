@@ -60,3 +60,62 @@ jobs:
         run: |
           # clean test 대신 clean build 사용: 빌드 성공 = 컴파일 + 테스트 통과 + JAR 생성
           ./gradlew clean build
+          
+  # CD (자동 배포)
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    needs: build          # 빌드/테스트 성공해야만 실행
+
+    # main 또는 dev 브랜치로 push 이벤트일 때 동작
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Java setup
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Make executable gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build JAR (for deploy)
+        env:
+          SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+          SPRING_DATASOURCE_USERNAME: sa
+          SPRING_DATASOURCE_PASSWORD: ""
+          KOFIC_API_KEY: ${{ secrets.KOFIC_API_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        run: ./gradlew clean build
+
+      - name: Find JAR file
+        id: jar
+        run: |
+          JAR_FILE=$(ls build/libs | grep '.jar' | head -n 1)
+          echo "JAR_FILE=$JAR_FILE" >> $GITHUB_OUTPUT
+          echo "Jar file: $JAR_FILE"
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/cinemind.pem
+          chmod 600 ~/.ssh/cinemind.pem
+
+      - name: Copy JAR to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/cinemind.pem \
+            "build/libs/${{ steps.jar.outputs.JAR_FILE }}" \
+            ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar
+
+      - name: Restart backend on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/cinemind.pem ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+          pkill -f 'cine-mind-0.0.1-SNAPSHOT.jar' || true
+          nohup java -jar /home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar \
+            --spring.profiles.active=prod > app.log 2>&1 &
+          EOF
