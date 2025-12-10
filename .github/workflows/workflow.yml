@@ -1,37 +1,32 @@
-# Actions 이름 github 페이지에서 볼 수 있다.
 name: CI Pipeline
 
-# Event Trigger : push / pull_request 시 CI 실행
 on:
   push:
-    # 배열로 여러 브랜치를 넣을 수 있다.
     branches: [ main, dev, feature/*, fix/*, workflow ]
   pull_request:
     branches:
-      - main # -로 여러 브랜치를 명시하는 것도 가능
+      - main
       - dev
       - workflow
 
 jobs:
-  # ===== CI : 빌드 + 테스트 =====
+  # =========================
+  # 1) CI: 빌드 + 테스트
+  #    - GitHub 호스트 러너에서만 수행
+  # =========================
   build:
-    # 스크립트 실행 환경 (OS)
-    # 배열로 선언시 개수 만큼 반복해서 실행한다.
     runs-on: ubuntu-latest
 
     steps:
-      # 코드 체크아웃
-      - name: checkout Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Java 17 설치
-      - name: java setup
+      - name: Java setup
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # Gradle 캐시 (빌드 속도 개선)
       - name: Cache Gradle Dependencies
         uses: actions/cache@v4
         with:
@@ -42,11 +37,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # gradlew 실행권한 부여
       - name: Make executable gradlew
         run: chmod +x ./gradlew
 
-      # 빌드 + 테스트
       - name: Build with Gradle and Run Tests
         env:
           SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
@@ -56,77 +49,56 @@ jobs:
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         run: ./gradlew clean build
 
-  # ===== CD : EC2 자동 배포 =====
-  deploy:
-    name: Deploy to EC2
-    runs-on: [self-hosted, linux]
-    needs: build              # build job 성공해야만 실행
-
-    # main 또는 dev 브랜치로 push 될 때만 실행
-    if: >
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
-
-    steps:
-      # 코드 체크아웃 (JAR 빌드를 위해)
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      # Java 17 설치
-      - name: Java setup
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      # gradlew 실행권한
-      - name: Make executable gradlew
-        run: chmod +x ./gradlew
-
-      # 배포용 JAR 빌드
-      - name: Build JAR (for deploy)
-        env:
-          SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
-          SPRING_DATASOURCE_USERNAME: sa
-          SPRING_DATASOURCE_PASSWORD: ""
-          KOFIC_API_KEY: ${{ secrets.KOFIC_API_KEY }}
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-        run: ./gradlew clean build
-
-      # build/libs 안에서 부트 JAR 파일 찾기
+      # 만들어진 JAR 파일 이름 찾기
       - name: Find JAR file
         id: jar
         run: |
-          # 부트 실행용 JAR 우선 (예: cine-mind-0.0.1-SNAPSHOT.jar)
-          JAR_FILE=$(ls build/libs | grep 'SNAPSHOT.jar$' | head -n 1)
-
-          # 없으면 아무 .jar 나 fallback
-          if [ -z "$JAR_FILE" ]; then
-            JAR_FILE=$(ls build/libs | grep '.jar$' | head -n 1)
-          fi
-
+          JAR_FILE=$(ls build/libs | grep '.jar' | head -n 1)
           echo "JAR_FILE=$JAR_FILE" >> $GITHUB_OUTPUT
           echo "Jar file: $JAR_FILE"
 
-      # EC2 접속용 SSH 키 셋업 (GitHub Secrets에서 읽기)
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/cinemind.pem
-          chmod 600 ~/.ssh/cinemind.pem
+      # 빌드 결과물을 아티팩트로 업로드
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs/${{ steps.jar.outputs.JAR_FILE }}
 
-      # JAR 파일을 EC2로 전송
-      - name: Copy JAR to EC2
-        run: |
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/cinemind.pem \
-            "build/libs/${{ steps.jar.outputs.JAR_FILE }}" \
-            ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar
+  # =========================
+  # 2) CD: EC2 로 배포
+  #    - EC2 self-hosted 러너에서 실행
+  #    - 빌드는 안 하고, 위에서 만든 JAR만 사용
+  # =========================
+  deploy:
+    name: Deploy to EC2
+    runs-on: [self-hosted, linux]
 
-      # EC2에서 기존 프로세스 종료 후 새 JAR 실행
-      - name: Restart backend on EC2
+    # build job 성공해야 실행
+    needs: build
+
+    # push 이면서 브랜치가 main 또는 dev 일 때만 배포
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+
+    steps:
+      # 아티팩트 다운로드 (self-hosted 러너 = EC2에서)
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: ./deploy-jar
+
+      # 기존 애플리케이션 중지 (실행 중이면)
+      - name: Stop current app (if running)
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/cinemind.pem ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
           pkill -f 'cine-mind-0.0.1-SNAPSHOT.jar' || true
+
+      # JAR 배포 경로로 복사
+      - name: Copy JAR into deploy path
+        run: |
+          cp ./deploy-jar/*.jar /home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar
+
+      # 새 JAR 실행
+      - name: Start app with nohup
+        run: |
           nohup java -jar /home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar \
-            --spring.profiles.active=prod > app.log 2>&1 &
-          EOF
+            --spring.profiles.active=prod > /home/ubuntu/app.log 2>&1 &
