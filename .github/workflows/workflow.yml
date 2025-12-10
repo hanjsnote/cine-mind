@@ -67,7 +67,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: spring-boot-app
-          path: /tmp/deployment/
+          path: /tmp/deployment/spring-boot-app
 
       # 2. 다운로드된 파일에서 JAR 파일명 찾기 및 ID 저장
       - name: Find JAR file
@@ -93,16 +93,15 @@ jobs:
       - name: Kill existing process
         run: pkill -f 'cine-mind-0.0.1-SNAPSHOT.jar' || true
 
-      # 4. [로컬 명령어] JAR 복사 및 실행 (수정된 부분)
+      # 4. JAR 복사 및 실행
+      - name: Kill existing process
+        run: pkill -f 'cine-mind-0.0.1-SNAPSHOT.jar' || true
+
       - name: Deploy and Start backend
         run: |
-          # JAR 파일 변수 사용: ${{ steps.jar.outputs.JAR_FILE }}
           JAR_FILENAME="${{ steps.jar.outputs.JAR_FILE }}"
-          
-          # 1. 아티팩트를 서비스 경로로 복사
           cp "/tmp/deployment/spring-boot-app/$JAR_FILENAME" \
              /home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar
-          
-          # 2. 새 JAR 실행
+
           nohup java -jar /home/ubuntu/cine-mind-0.0.1-SNAPSHOT.jar \
             --spring.profiles.active=prod > app.log 2>&1 &
