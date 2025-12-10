@@ -93,10 +93,6 @@ jobs:
       - name: Kill existing process
         run: pkill -f 'cine-mind-0.0.1-SNAPSHOT.jar' || true
 
-      # 4. JAR 복사 및 실행
-      - name: Kill existing process
-        run: pkill -f 'cine-mind-0.0.1-SNAPSHOT.jar' || true
-
       - name: Deploy and Start backend
         run: |
           JAR_FILENAME="${{ steps.jar.outputs.JAR_FILE }}"
