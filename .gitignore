@@ -38,3 +38,8 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+# local env files (never commit)
+.env
+.env.*
+!.env.example
