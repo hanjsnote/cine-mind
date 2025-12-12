@@ -71,7 +71,7 @@ services:
       - "5173:5173"
     environment:
       # 프론트에서 import.meta.env.VITE_API_BASE_URL 로 읽어가게
-      VITE_API_BASE_URL: "http://localhost:8081/api"
+      VITE_API_BASE_URL: "http://localhost:8081"
 
 volumes:
   db_data:
