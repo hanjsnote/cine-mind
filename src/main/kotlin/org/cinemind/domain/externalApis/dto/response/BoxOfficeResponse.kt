@@ -5,8 +5,14 @@ data class BoxOfficeResponse (
     val boxOfficeResult: BoxOfficeResult
 )
 
+// 주간/주말 박스 오피스 결과 컨테이너
 data class BoxOfficeResult (
-    val dailyBoxOfficeList: List<BoxOfficeInfo>
+    val boxofficeType: String,  // 박스오피스 유형 (일별, 주말)
+    val showRange: String,       // 조회 기간
+    val yearWeekTime: String? = null,
+
+    // 주간/주말 박스오피스 목록
+    val weeklyBoxOfficeList: List<BoxOfficeInfo>? = null
 )
 
 // 박스 오피스 목록의 각 영화 항목 DTO

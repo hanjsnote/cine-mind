@@ -59,22 +59,23 @@ class KoficApiClient (
             .block()?.movieInfoResult?.movieInfo
     }
 
-    // targetDt(날짜) 기준으로 일일 박스오피스 목록을 가져오는 API (단일 날짜)
+    // targetDt(날짜) 기준으로 주간/주말 박스오피스 목록을 가져오는 API (단일 날짜)
     fun getMovieBoxOffice(targetDt: String): List<BoxOfficeInfo> {
-        val uri = "/boxoffice/searchDailyBoxOfficeList.json"
+        val uri = "/boxoffice/searchWeeklyBoxOfficeList.json"
 
         return webClient.get()
             .uri {
                     builder -> builder.path(uri)
                 .queryParam("key", apiKey)
                 .queryParam("targetDt", targetDt)
+                .queryParam("weekGb", "0")
                 .build()
             }
             .retrieve()
             .bodyToMono(BoxOfficeResponse::class.java)
             .block()
             ?.boxOfficeResult
-            ?.dailyBoxOfficeList
+            ?.weeklyBoxOfficeList
             ?: emptyList()  // null이거나 목록이 없으면 빈 리스트 반환
     }
 }
