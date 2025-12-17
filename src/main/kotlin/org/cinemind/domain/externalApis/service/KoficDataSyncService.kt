@@ -40,7 +40,7 @@ class KoficDataSyncService (
 
     // 전체 영화 목록을 조회
     fun saveMovieList() {
-        val itemPerPage = 100   // 한 번에 적재할 영화 갯수
+        val itemPerPage = 10    // 한 번에 적재할 영화 갯수
         var currentPage = 1     // 시작할 현재 페이지 번호
         var totalPages = 1
 
