@@ -1,5 +1,6 @@
 package org.cinemind.domain.movie.entity
 
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -12,7 +13,7 @@ import org.cinemind.common.entity.BaseEntity
 @Entity
 @Table(name="peoples")
 class People (
-
+    @Column(unique = true)
     val peopleNm: String,     // 이름(국문)
     val peopleNmEn: String      // 이름(영문)
 
