@@ -16,6 +16,7 @@ class BoxOfficeSyncService (
     private val boxOfficeRepository: BoxOfficeRepository,
     private val dateUtils: DateUtils,
     private val koficDataSyncService: KoficDataSyncService,
+    private val boxOfficeCarryService: BoxOfficeCarryService,
 ){
 
     //    // targetDt를 이용해 BoxOffice 데이터 적재
@@ -30,6 +31,11 @@ class BoxOfficeSyncService (
             // 날짜 정보(targetDt)와 BoxOffice를 결합하여 처리
             saveBoxOfficeData(targetDt, dailyBoxOfficeList)
         }
+    }
+
+    // 주말 박스오피스 기반 인기 영화 데이터 적재를 시작
+    fun syncpopularMovies() {
+        boxOfficeCarryService.syncPopularMovies()
     }
 
 //     개별 영화 데이터를 DB에 적재 (BoxOffice 통계도 함께 적재)
