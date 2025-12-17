@@ -19,6 +19,7 @@ data class BoxOfficeResult (
 data class BoxOfficeInfo(
     val movieCd: String,        // 영화코드
     val rank: String,           // 해당 일자 박스오피스 순위
+    val movieNm: String,        // 영화명
     val salesAcc: String,       // 누적 매출액
     val audiAcc: String         // 누적 관객수
 )

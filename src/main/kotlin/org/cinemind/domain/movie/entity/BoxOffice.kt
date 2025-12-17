@@ -23,7 +23,8 @@ class BoxOffice (
     @Column(nullable = false)
     val targetDt: String,
 
-    val rank: String,          // 순위
+    val rank: String,         // 순위
+    val movieNm: String,      // 영화명
     val saleAccess: String,   // 누적 매출액
     val audiAcc: String       // 누적 관객수
 

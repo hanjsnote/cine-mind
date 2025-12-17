@@ -61,6 +61,7 @@ class BoxOfficeSyncService (
             movie = movie,
             targetDt = target,
             rank = boxOffice.rank,
+            movieNm = boxOffice.movieNm,
             saleAccess = boxOffice.salesAcc,
             audiAcc = boxOffice.audiAcc
         ))
