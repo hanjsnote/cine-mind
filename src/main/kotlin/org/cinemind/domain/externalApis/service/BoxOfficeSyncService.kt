@@ -34,7 +34,7 @@ class BoxOfficeSyncService (
     }
 
     // 주말 박스오피스 기반 인기 영화 데이터 적재를 시작
-    fun syncpopularMovies() {
+    fun syncPopularMovies() {
         boxOfficeCarryService.syncPopularMovies()
     }
 
