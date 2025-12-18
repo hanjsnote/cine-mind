@@ -21,10 +21,10 @@ class KoficDataLoadScheduler (
     fun initialLoadData() {
         println("Starting scheduled movie list load...")
         koficDataSyncService.saveMovieList()
-        boxOfficeSyncService.startLoadBoxOffice(
-            startDate = "20250101",
-            endDate = "20250101"
-        )
+//        boxOfficeSyncService.startLoadBoxOffice(
+//            startDate = "20250101",
+//            endDate = "20250101"
+//        )
         println("Finished scheduled movie list load.")
     }
 }

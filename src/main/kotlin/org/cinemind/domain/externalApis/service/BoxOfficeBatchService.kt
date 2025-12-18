@@ -15,7 +15,7 @@ class BoxOfficeBatchService (
     private val koficDataSyncService: KoficDataSyncService
 ) {
     private val log = LoggerFactory.getLogger(BoxOfficeBatchService::class.java)
-    private val PARALLEL_DEGREE = 5 // 최대 병렬 API 호출 수
+    private val PARALLEL_DEGREE = 3 // 최대 병렬 API 호출 수
 
     // 100건의 MovieCd 목록을 받아 처리하는 트랜잭션 단위
     @Transactional

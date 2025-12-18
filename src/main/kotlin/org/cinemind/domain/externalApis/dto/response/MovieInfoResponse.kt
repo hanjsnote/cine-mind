@@ -1,10 +1,11 @@
 package org.cinemind.domain.externalApis.dto.response
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 
 // Kofic API 응답의 최상위 객체
 data class MovieInfoResponse (
-    val movieInfoResult: MovieInfoResult
+    val movieInfoResult: MovieInfoResult? = null
 )
 
 data class MovieInfoResult(
