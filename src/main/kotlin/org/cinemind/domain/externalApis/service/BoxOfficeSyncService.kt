@@ -12,37 +12,36 @@ import org.springframework.stereotype.Service
 @Service
 @Transactional
 class BoxOfficeSyncService (
-    private val koficApiClient: KoficApiClient,
     private val boxOfficeRepository: BoxOfficeRepository,
-    private val dateUtils: DateUtils,
     private val koficDataSyncService: KoficDataSyncService,
     private val boxOfficeCarryService: BoxOfficeCarryService,
 ){
 
     //    // targetDt를 이용해 BoxOffice 데이터 적재
-    fun startLoadBoxOffice(startDate: String, endDate: String) {
-
-        // 날짜 범위 생성 및 반복 호출
-        val datesToLoad = dateUtils.generateDate(startDate, endDate)
-
-        datesToLoad.forEach { targetDt ->
-            // 단일 날짜의 BoxOffice 목록을 가져옴
-            val dailyBoxOfficeList = koficApiClient.getMovieBoxOffice(targetDt)
-            // 날짜 정보(targetDt)와 BoxOffice를 결합하여 처리
-            saveBoxOfficeData(targetDt, dailyBoxOfficeList)
-        }
-    }
+//    fun startLoadBoxOffice(startDate: String, endDate: String) {
+//
+//        // 날짜 범위 생성 및 반복 호출
+//        val datesToLoad = dateUtils.generateDate(startDate, endDate)
+//
+//        datesToLoad.forEach { targetDt ->
+//            // 단일 날짜의 BoxOffice 목록을 가져옴
+//            val dailyBoxOfficeList = koficApiClient.getMovieBoxOffice(targetDt)
+//            // 날짜 정보(targetDt)와 BoxOffice를 결합하여 처리
+//            saveBoxOfficeData(targetDt, dailyBoxOfficeList)
+//        }
+//    }
 
     // 주말 박스오피스 기반 인기 영화 데이터 적재를 시작
-    fun syncPopularMovies() {
+    fun syncPopularBoxOffice() {
         boxOfficeCarryService.syncPopularMovies()
+
     }
 
 //     개별 영화 데이터를 DB에 적재 (BoxOffice 통계도 함께 적재)
-    private fun saveBoxOfficeData(targetDt: String, dailyBoxOfficeList: List<BoxOfficeInfo>) {
+    fun saveBoxOfficeData(targetDt: String, weeklyBoxOfficeList: List<BoxOfficeInfo>) {
 
     // BoxOfficeInfo 목록을 순회
-    dailyBoxOfficeList.forEach { boxOfficeInfo ->
+    weeklyBoxOfficeList.forEach { boxOfficeInfo ->
         val movieCd = boxOfficeInfo.movieCd
 
         // Movie 엔티티 조회 (movies 테이블에 해당 영화가 없으면 상세 조회 api를 호출하여 Movie와 매핑 엔티티를 모두 저장. )

@@ -26,7 +26,7 @@ class BoxOfficeBatchScheduler (
         log.info("=========================================================")
 
         try {
-            boxOfficeSyncService.syncPopularMovies()
+            boxOfficeSyncService.syncPopularBoxOffice()
             log.info("=========================================================")
             log.info("  [스케줄러 종료] 인기 영화 데이터 동기화 완료.")
             log.info("=========================================================")

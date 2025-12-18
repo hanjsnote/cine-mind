@@ -3,8 +3,10 @@ package org.cinemind.domain.externalApis.service
 import org.cinemind.domain.externalApis.client.KoficApiClient
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import java.util.concurrent.atomic.AtomicInteger
 /**
  * KOFIC 주말 박스오피스의 데이터를 특정 날짜부터 호출하는 클래스
@@ -18,40 +20,41 @@ class BoxOfficeCarryService (
     private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
     private val BATCH_SIZE = 100 // 배치 사이즈
 
-    // 2004년도부터 주말 박스 오피스 순회하여 고유 MovieCd를 수집
-    // 수집된 MovieCd 목록을 100개 단위로 나누어 배치 처리 위임
+    // 최신순부터 최대 2004년 까지 주말 박스 오피스 순회하여 고유 MovieCd를 수집
+    // 수집된 MovieCd 목록을 100개 단위로 나누어 BoxofficeBatchService에서 배치 처리 위임
     fun syncPopularMovies() {
-        val startDate = LocalDate.of(2004, 1, 1) // 데이터 수집 시작일
-        val endDate = LocalDate.now().minusDays(7) // 최근 1주 전까지
+        val startDate = LocalDate.of(2024, 12, 1) // 데이터 수집 시작일
+        val today = LocalDate.now()
+        val latestSunday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+        var currentDate = latestSunday.minusDays(7) // 시작일: 최근 주말 박스오피스 기준일 (7일 전)
         val uniqueMovieCds = LinkedHashSet<String>() // 순서 보장을 위한 LinkedHashSet 사용
-        var currentDate = startDate
         var totalWeeks = 0
 
-        log.info("--- 1단계: 2004년부터 현재까지 주간 박스오피스 MovieCd 수집 시작 ---")
+        log.info("--- 1단계: 최신 날짜 ({}) 부터 ({}) 까지 주간 박스오피스 MovieCd 수집 시작 (최신순) ---", currentDate.format(DATE_FORMATTER), startDate.format(DATE_FORMATTER))
 
-        // 7일 간격으로 날짜를 증가시키며 주간 박스오피스 목록을 가져옴 (순차적 실행)
-        while (currentDate.isBefore(endDate)) {
+        // 7일 간격으로 날짜를 증가시키며 주간 박스오피스 목록을 가져옴 (최신순 실행)
+        while (currentDate.isAfter(startDate)) {
             val targetDt = currentDate.format(DATE_FORMATTER)
 
             // 주간 박스 오피스 API 호출
             val boxOfficeList = try {
                 koficApiClient.getMovieBoxOffice(targetDt)
             } catch (e: Exception) {
-                log.error("[{} 주] 주간 박스오피스 API 호출 중 오류 발생: {}", targetDt, e.message)
+                log.error("[{} 주] 주간 박스오피스 API 호출 중 기타 오류 발생: {}", targetDt, e.message)
                 emptyList()
             }
-
             if (boxOfficeList.isNotEmpty()) {
                 boxOfficeList.forEach { info ->
                     uniqueMovieCds.add(info.movieCd)
                 }
             }
 
+            // 50주마다 로그 출력
             if (totalWeeks % 50 == 0) {
                 log.info("  [{} 주] 현재까지 고유 MovieCd 총계: {}", targetDt, uniqueMovieCds.size)
             }
 
-            currentDate = currentDate.plusDays(7)
+            currentDate = currentDate.minusDays(7)
             totalWeeks++
 
             // 안정 장치: 약 500건 목표 달성 시 중단
