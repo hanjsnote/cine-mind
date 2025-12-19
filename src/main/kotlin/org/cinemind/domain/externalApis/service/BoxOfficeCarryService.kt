@@ -20,13 +20,14 @@ class BoxOfficeCarryService (
     private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
 
     fun syncPopularMovies(): Map<String, List<BoxOfficeInfo>> {
-        val startDate = LocalDate.of(2024, 12, 1)
+        val startDate = LocalDate.of(2004, 1, 1)
         val today = LocalDate.now()
         val latestSunday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
         var currentDate = latestSunday.minusDays(7)
 
         val resultDataMap = LinkedHashMap<String, List<BoxOfficeInfo>>()
         val uniqueMovieCds = mutableSetOf<String>()
+        var totalWeeks = 0
 
         log.info("--- 1단계: KOFIC API로부터 주간 데이터 수집 시작 ---")
 
@@ -42,8 +43,15 @@ class BoxOfficeCarryService (
                 log.error("[{} 주] API 수집 중 오류: {}", targetDt, e.message)
             }
 
+            // 50주마다 로그 출력
+            if (totalWeeks % 50 == 0) {
+                log.info("  [{} 주] 현재까지 고유 MovieCd 총계: {}", targetDt, uniqueMovieCds.size)
+            }
+            totalWeeks++
+
+            // 안전장치: 최대 5000건만 저장되도록 설정
             currentDate = currentDate.minusDays(7)
-            if (uniqueMovieCds.size >= 500) break
+            if (uniqueMovieCds.size >= 5000) break
         }
 
         log.info("--- 수집 완료: 총 {}주차, 고유 영화 {}건 확보 ---", resultDataMap.size, uniqueMovieCds.size)

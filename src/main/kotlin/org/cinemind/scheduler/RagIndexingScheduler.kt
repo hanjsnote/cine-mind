@@ -2,6 +2,8 @@ package org.cinemind.scheduler
 
 import org.cinemind.domain.rag.service.RagIndexingService
 import org.slf4j.LoggerFactory
+import org.springframework.context.event.ContextRefreshedEvent
+import org.springframework.context.event.EventListener
 import org.springframework.core.annotation.Order
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -16,7 +18,8 @@ class RagIndexingScheduler (
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     // 매월 1일 새벽 3시에 실행 (신규 영화만 인덱싱)
-     @Scheduled(cron = "0 0 3 1 * ?")
+//     @Scheduled(cron = "0 0 3 1 * ?")
+    @EventListener(ContextRefreshedEvent::class)
     fun scheduledIncrementalIndexing() {
         println("--- [RAG] 월별 신규 영화 데이터 인덱싱 작업을 시작합니다 ---")
         try {
