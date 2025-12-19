@@ -9,10 +9,19 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import org.cinemind.common.entity.BaseEntity
 
 @Entity
-@Table(name = "box_offices")
+@Table(
+    name = "box_offices",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_box_offices_target_dt_movie",
+            columnNames = ["target_dt", "movie_id"]
+        )
+    ]
+)
 class BoxOffice (
 
     @ManyToOne(fetch = FetchType.LAZY)

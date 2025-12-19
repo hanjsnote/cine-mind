@@ -2,6 +2,7 @@ package org.cinemind.domain.externalApis.service
 
 import org.cinemind.domain.externalApis.client.KoficApiClient
 import org.cinemind.domain.externalApis.dto.response.BoxOfficeInfo
+import org.cinemind.domain.movie.repository.BoxOfficeRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.DayOfWeek
@@ -14,16 +15,21 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 @Service
 class BoxOfficeCarryService (
-    private val koficApiClient: KoficApiClient
+    private val koficApiClient: KoficApiClient,
+    private val boxOfficeRepository: BoxOfficeRepository
 ) {
     private val log = LoggerFactory.getLogger(BoxOfficeCarryService::class.java)
     private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
 
     fun syncPopularMovies(): Map<String, List<BoxOfficeInfo>> {
-        val startDate = LocalDate.of(2004, 1, 1)
+        val startDate = LocalDate.of(2025, 11, 15)
         val today = LocalDate.now()
         val latestSunday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
         var currentDate = latestSunday.minusDays(7)
+
+        val startDtStr = startDate.format(DATE_FORMATTER)
+        val endDtStr = currentDate.format(DATE_FORMATTER)
+        val existingTargetDts = boxOfficeRepository.findExistingTargetDtsBetween(startDtStr, endDtStr)
 
         val resultDataMap = LinkedHashMap<String, List<BoxOfficeInfo>>()
         val uniqueMovieCds = mutableSetOf<String>()
@@ -33,14 +39,21 @@ class BoxOfficeCarryService (
 
         while (currentDate.isAfter(startDate)) {
             val targetDt = currentDate.format(DATE_FORMATTER)
-            try {
-                val boxOfficeList = koficApiClient.getMovieBoxOffice(targetDt)
-                if (boxOfficeList.isNotEmpty()) {
-                    resultDataMap[targetDt] = boxOfficeList
-                    boxOfficeList.forEach { uniqueMovieCds.add(it.movieCd) }
+
+            // 해당 주차에 이미 데이터가 있으면 스킵
+            val shouldSkip = existingTargetDts.contains(targetDt)
+            if (shouldSkip) {
+                if (totalWeeks % 50 == 0) log.info("[{}] 이미 DB에 존재 → 스킵", targetDt)
+            } else {
+                try {
+                    val boxOfficeList = koficApiClient.getMovieBoxOffice(targetDt)
+                    if (boxOfficeList.isNotEmpty()) {
+                        resultDataMap[targetDt] = boxOfficeList
+                        boxOfficeList.forEach { uniqueMovieCds.add(it.movieCd) }
+                    }
+                } catch (e: Exception) {
+                    log.error("[{}] API 수집 중 오류: {}", targetDt, e.message)
                 }
-            } catch (e: Exception) {
-                log.error("[{} 주] API 수집 중 오류: {}", targetDt, e.message)
             }
 
             // 50주마다 로그 출력
