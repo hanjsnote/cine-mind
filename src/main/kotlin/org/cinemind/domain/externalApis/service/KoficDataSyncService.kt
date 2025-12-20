@@ -35,12 +35,12 @@ class KoficDataSyncService (
     private val moviePeopleRepository: MoviePeopleRepository,
     private val movieCompanyRepository: MovieCompanyRepository,
     private val movieMatchingService: MovieMatchingService,
-){
+) {
     private val log = LoggerFactory.getLogger(KoficDataSyncService::class.java)
 
     // 전체 영화 목록을 조회
     fun saveMovieList() {
-        val itemPerPage = 10    // 한 번에 적재할 영화 갯수
+        val itemPerPage = 0    // 한 번에 적재할 영화 갯수
         var currentPage = 1     // 시작할 현재 페이지 번호
         var totalPages = 1
 
@@ -93,7 +93,8 @@ class KoficDataSyncService (
 
         // --- [매칭 로직 및 디버그 로깅 시작] ---
         // 1. 상세 매칭 후보 리스트를 가져옴
-        val detailedMatches = movieMatchingService.getDetailedMatchCandidates(movieInfo.movieNm, movieInfo.openDt, kmdbInfo)
+        val detailedMatches =
+            movieMatchingService.getDetailedMatchCandidates(movieInfo.movieNm, movieInfo.openDt, kmdbInfo)
 
         if (detailedMatches.isEmpty()) {
             log.warn("[{}] KOFIC 제목 '{}' 에 대한 유효한 KMDb 후보가 없습니다. (유사도 임계값 미달)", movieInfo.movieCd, movieInfo.movieNm)
@@ -131,7 +132,7 @@ class KoficDataSyncService (
         // 줄거리 추출: KmMovieResponse 구조에 맞춰서 추출
         val plotText = bestMatch
             ?.plots
-            ?.plot?.firstOrNull{it.plotLang == "한국어"}
+            ?.plot?.firstOrNull { it.plotLang == "한국어" }
             ?.plotText
             ?.replace("!", "")
             ?.trim()
@@ -141,11 +142,11 @@ class KoficDataSyncService (
         val savedMovie = saveMovie(movieInfo, plotText)
 
         // 매핑 엔티티 저장 (Genre, People, Company)
+        // [수정된 부분]: saveAllMappingEntites 메서드를 최적화된 로직으로 대체합니다.
         saveAllMappingEntites(savedMovie, movieInfo)
 
         return savedMovie
     }
-
 
     // Movie 엔티티 저장 로직
     private fun saveMovie(movieInfo: MovieInfo, plot: String): Movie {
@@ -164,33 +165,124 @@ class KoficDataSyncService (
         )
     }
 
-    // 매핑 엔티티 저장 로직: 장르, 인물, 회사 매핑 처리
+    /**
+     * 매핑 엔티티 저장 로직: 장르, 인물, 회사 매핑 처리 (최적화 버전)
+     * findAllBy...In 메서드를 사용하여 DB 조회 횟수를 최소화 (N+1 문제 해결)
+     */
     private fun saveAllMappingEntites(movie: Movie, movieInfo: MovieInfo) {
-        // 장르 처리 DTO 목록 -> DB에서 찾아서 비어있다면 저장 -> 매핑 테이블 저장
-        movieInfo.genres.forEach { genreDto ->
-            val genre = genreRepository.findByGenreNm(genreDto.genreNm)
-                ?: genreRepository.save(Genre(genreDto.genreNm))
-            movieGenreRepository.save(MovieGenre(movie = movie, genre = genre))
-        }
-        // 감독 목록 순회 및 저장
-        movieInfo.directors.forEach { directorDto ->
-            val people = peopleRepository.findByPeopleNm(directorDto.peopleNm)
-                ?: peopleRepository.save(People(directorDto.peopleNm, directorDto.peopleNmEn ?: ""))
-            moviePeopleRepository.save(MoviePeople(movie = movie, people = people, role = PeopleRole.DIRECTOR, castNm = ""))
+
+        // ----------------------------
+        // 1) Genre
+        // ----------------------------
+        val genreNames = movieInfo.genres
+            .map { it.genreNm.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        if (genreNames.isNotEmpty()) {
+            // 1) 먼저 DB에 insert 시도 (동시성 안전)
+            genreRepository.upsertIgnoreAll(genreNames)
+
+            // 2) 다시 조회해서 엔티티 확보
+            val genreMap = genreRepository
+                .findAllByGenreNmIn(genreNames)
+                .associateBy { it.genreNm }
+
+            // 3) 매핑 생성 (중복 제거)
+            val movieGenres = genreNames
+                .mapNotNull { name -> genreMap[name]?.let { MovieGenre(movie = movie, genre = it) } }
+                .distinctBy { it.genre.id } // (movie_id, genre_id) 유니크 대비
+
+            movieGenreRepository.saveAll(movieGenres)
         }
 
-        // 배우 목록 순회 및 저장
-        movieInfo.actors.forEach { actorDto  ->
-            val people = peopleRepository.findByPeopleNm(actorDto.peopleNm)
-                ?: peopleRepository.save(People(actorDto.peopleNm, actorDto.peopleNmEn ?: ""))
-            moviePeopleRepository.save(MoviePeople(movie = movie, people = people, role = PeopleRole.ACTOR, castNm = actorDto.castNm))
+
+        // ----------------------------
+        // 2) People
+        // ----------------------------
+        val allPeopleDtos = (
+                movieInfo.directors.map { it.peopleNm.trim() to (it.peopleNmEn ?: "").trim() } +
+                        movieInfo.actors.map { it.peopleNm.trim() to (it.peopleNmEn ?: "").trim() }
+                )
+            .filter { it.first.isNotBlank() }
+            .distinctBy { it.first } // peopleNm 기준
+
+        if (allPeopleDtos.isNotEmpty()) {
+            val names = allPeopleDtos.map { it.first }
+            val ens = allPeopleDtos.map { it.second }
+
+            // 1) 먼저 upsert
+            peopleRepository.upsertAll(names, ens)
+
+            // 2) 다시 조회
+            val peopleMap = peopleRepository
+                .findAllByPeopleNmIn(names)
+                .associateBy { it.peopleNm }
+
+            // 3) 매핑 생성 + 중복 제거
+            val moviePeoples = buildList {
+                // 감독
+                movieInfo.directors.forEach { d ->
+                    val nm = d.peopleNm.trim()
+                    val people = peopleMap[nm] ?: return@forEach
+                    add(MoviePeople(movie = movie, people = people, role = PeopleRole.DIRECTOR, castNm = ""))
+                }
+
+                // 배우
+                movieInfo.actors.forEach { a ->
+                    val nm = a.peopleNm.trim()
+                    val people = peopleMap[nm] ?: return@forEach
+                    val cast = a.castNm?.trim() ?: ""
+                    add(MoviePeople(movie = movie, people = people, role = PeopleRole.ACTOR, castNm = cast))
+                }
+            }.distinctBy { mp ->
+                // (movie_id, people_id, role, cast_nm) 유니크 대비
+                "${mp.people.id}-${mp.role}-${mp.castNm}"
+            }
+
+            moviePeopleRepository.saveAll(moviePeoples)
         }
 
-        // 회사 목록 순회 및 저장
-        movieInfo.companys.forEach { companyDto ->
-            val company = companyRepository.findByCompanyCd(companyDto.companyCd)
-                ?: companyRepository.save(Company(companyDto.companyCd, companyDto.companyNm, companyDto.companyNmEm ?: "" ))
-            movieCompanyRepository.save(MovieCompany(movie = movie, company = company, companyPartNm = companyDto.companyPartNm))
+
+        // ----------------------------
+        // 3) Company
+        // ----------------------------
+        val companyDtos = movieInfo.companys
+            .map { c ->
+                val cd = c.companyCd.trim()
+                val nm = c.companyNm.trim()
+                val en = (c.companyNmEm ?: "").trim()
+                Triple(cd, nm, en)
+            }
+            .filter { it.first.isNotBlank() }
+            .distinctBy { it.first } // companyCd 기준
+
+        if (companyDtos.isNotEmpty()) {
+            val cds = companyDtos.map { it.first }
+            val nms = companyDtos.map { it.second }
+            val ens = companyDtos.map { it.third }
+
+            // 1) 먼저 upsert
+            companyRepository.upsertAll(cds, nms, ens)
+
+            // 2) 다시 조회
+            val companyMap = companyRepository
+                .findAllByCompanyCdIn(cds)
+                .associateBy { it.companyCd }
+
+            // 3) 매핑 생성 + 중복 제거 (movie_id, company_id, company_part_nm)
+            val movieCompanies = movieInfo.companys
+                .mapNotNull { dto ->
+                    val company = companyMap[dto.companyCd.trim()] ?: return@mapNotNull null
+                    MovieCompany(
+                        movie = movie,
+                        company = company,
+                        companyPartNm = dto.companyPartNm.trim()
+                    )
+                }
+                .distinctBy { mc -> "${mc.company.id}-${mc.companyPartNm}" }
+
+            movieCompanyRepository.saveAll(movieCompanies)
         }
     }
 }
