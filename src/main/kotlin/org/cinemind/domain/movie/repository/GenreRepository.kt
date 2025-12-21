@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param
 
 interface GenreRepository : JpaRepository<Genre, Long> {
 
+    fun findByGenreNm(genreNm: String): Genre?
     fun findAllByGenreNmIn(genreNames: List<String>): List<Genre>
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -15,10 +16,10 @@ interface GenreRepository : JpaRepository<Genre, Long> {
         value = """
             INSERT INTO genres (genre_nm, created_at, modified_at)
             SELECT x, now(), now()
-            FROM unnest(:names) AS x
+            FROM unnest(CAST(:names AS text[])) AS x
             ON CONFLICT (genre_nm) DO NOTHING
         """,
         nativeQuery = true
     )
-    fun upsertIgnoreAll(@Param("names") names: List<String>)
+    fun upsertIgnoreAll(@Param("names") names: Array<String>): Int
 }

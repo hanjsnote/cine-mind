@@ -181,7 +181,7 @@ class KoficDataSyncService (
 
         if (genreNames.isNotEmpty()) {
             // 1) 먼저 DB에 insert 시도 (동시성 안전)
-            genreRepository.upsertIgnoreAll(genreNames)
+            genreRepository.upsertIgnoreAll(genreNames.toTypedArray())
 
             // 2) 다시 조회해서 엔티티 확보
             val genreMap = genreRepository
@@ -212,7 +212,10 @@ class KoficDataSyncService (
             val ens = allPeopleDtos.map { it.second }
 
             // 1) 먼저 upsert
-            peopleRepository.upsertAll(names, ens)
+            peopleRepository.upsertAll(
+                names.toTypedArray(),
+                ens.toTypedArray()
+            )
 
             // 2) 다시 조회
             val peopleMap = peopleRepository
@@ -263,7 +266,11 @@ class KoficDataSyncService (
             val ens = companyDtos.map { it.third }
 
             // 1) 먼저 upsert
-            companyRepository.upsertAll(cds, nms, ens)
+            companyRepository.upsertAll(
+                cds.toTypedArray(),
+                nms.toTypedArray(),
+                ens.toTypedArray()
+            )
 
             // 2) 다시 조회
             val companyMap = companyRepository

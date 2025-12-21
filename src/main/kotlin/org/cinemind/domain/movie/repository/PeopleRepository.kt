@@ -14,8 +14,8 @@ interface PeopleRepository : JpaRepository<People, Long> {
     @Query(
         value = """
             INSERT INTO peoples (people_nm, people_nm_en, created_at, modified_at)
-            SELECT nm, en, now(), now()
-            FROM unnest(:names, :ens) AS t(nm, en)
+            SELECT t.nm, t.en, now(), now()
+            FROM unnest(CAST(:names AS text[]), CAST(:ens AS text[])) AS t(nm, en)
             ON CONFLICT (people_nm) DO UPDATE
             SET people_nm_en = CASE 
                 WHEN peoples.people_nm_en = '' AND EXCLUDED.people_nm_en <> '' THEN EXCLUDED.people_nm_en
@@ -26,7 +26,7 @@ interface PeopleRepository : JpaRepository<People, Long> {
         nativeQuery = true
     )
     fun upsertAll(
-        @Param("names") names: List<String>,
-        @Param("ens") ens: List<String>
-    )
+        @Param("names") names: Array<String>,
+        @Param("ens") ens: Array<String>
+    ): Int
 }

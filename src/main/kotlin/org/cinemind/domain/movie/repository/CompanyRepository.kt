@@ -14,8 +14,12 @@ interface CompanyRepository : JpaRepository<Company, Long> {
     @Query(
         value = """
             INSERT INTO companies (company_cd, company_nm, company_nm_en, created_at, modified_at)
-            SELECT cd, nm, en, now(), now()
-            FROM unnest(:cds, :nms, :ens) AS t(cd, nm, en)
+            SELECT t.cd, t.nm, t.en, now(), now()
+            FROM unnest(
+                CAST(:cds AS text[]),
+                CAST(:nms AS text[]),
+                CAST(:ens AS text[])
+            ) AS t(cd, nm, en)
             ON CONFLICT (company_cd) DO UPDATE
             SET company_nm = EXCLUDED.company_nm,
                 company_nm_en = COALESCE(NULLIF(EXCLUDED.company_nm_en, ''), companies.company_nm_en),
@@ -24,8 +28,8 @@ interface CompanyRepository : JpaRepository<Company, Long> {
         nativeQuery = true
     )
     fun upsertAll(
-        @Param("cds") cds: List<String>,
-        @Param("nms") nms: List<String>,
-        @Param("ens") ens: List<String>
-    )
+        @Param("cds") cds: Array<String>,
+        @Param("nms") nms: Array<String>,
+        @Param("ens") ens: Array<String>
+    ): Int
 }

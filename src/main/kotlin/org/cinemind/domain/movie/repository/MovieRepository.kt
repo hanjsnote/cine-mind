@@ -1,12 +1,25 @@
 package org.cinemind.domain.movie.repository
 
 import org.cinemind.domain.movie.entity.Movie
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
+interface MovieRepository : JpaRepository<Movie, Long> {
 
-interface MovieRepository : JpaRepository<Movie, Long>{
+    @Query("""
+        select m.id
+        from Movie m
+        where not exists (
+            select 1
+            from MovieEmbedding me
+            where me.movie = m
+        )
+        order by m.id
+    """)
+    fun findNotIndexedMovieIds(pageable: Pageable): Page<Long>
 
-    // RAG 인덱싱을 위해 모든 연관 엔티티를 Fetch join하여 N+1 문제 방지
     @Query("""
         SELECT DISTINCT m 
         FROM Movie m
@@ -17,10 +30,9 @@ interface MovieRepository : JpaRepository<Movie, Long>{
         LEFT JOIN FETCH m.movieCompany mc
         LEFT JOIN FETCH mc.company
         LEFT JOIN FETCH m.boxOffice bo
+        WHERE m.id IN :ids
     """)
-    override fun findAll (): List<Movie>
+    fun findAllWithRelationsByIdIn(@Param("ids") ids: List<Long>): List<Movie>
 
-    // KoficDataSyncService의 saveOrFindMovieData 함수에서 사용: 영화 코드로 Movie 엔티티를 조회
     fun findByMovieCd(movieCd: String): Movie?
-
 }
