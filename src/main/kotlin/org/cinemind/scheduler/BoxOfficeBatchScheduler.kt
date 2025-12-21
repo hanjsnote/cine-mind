@@ -18,8 +18,8 @@ class BoxOfficeBatchScheduler (
     private val log = LoggerFactory.getLogger(BoxOfficeBatchScheduler::class.java)
 
     // 주말 박스오피스 적재 스케줄링 (월 1회: 매월 1일 새벽 4시)
-//    @Scheduled(cron = "0 0 4 1 * ?")
-    @EventListener(ContextRefreshedEvent::class)
+    @Scheduled(cron = "0 0 4 1 * ?")
+//    @EventListener(ContextRefreshedEvent::class)
     fun runBoxOfficeScheduler() {
         log.info("=========================================================")
         log.info("  [스케줄러 시작] 주말 박스오피스 기반 인기 영화 데이터 동기화 시작.")

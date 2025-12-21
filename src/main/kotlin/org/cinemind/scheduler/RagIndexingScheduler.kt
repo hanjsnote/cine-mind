@@ -18,8 +18,8 @@ class RagIndexingScheduler (
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     // 매월 1일 새벽 3시에 실행 (신규 영화만 인덱싱)
-//     @Scheduled(cron = "0 0 3 1 * ?")
-    @EventListener(ContextRefreshedEvent::class)
+     @Scheduled(cron = "0 0 3 1 * ?")
+//    @EventListener(ContextRefreshedEvent::class)
     fun scheduledIncrementalIndexing() {
         println("--- [RAG] 월별 신규 영화 데이터 인덱싱 작업을 시작합니다 ---")
         try {
