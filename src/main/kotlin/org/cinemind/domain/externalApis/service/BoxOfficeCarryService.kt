@@ -22,7 +22,7 @@ class BoxOfficeCarryService (
     private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
 
     fun syncPopularMovies(): Map<String, List<BoxOfficeInfo>> {
-        val startDate = LocalDate.of(2025, 11, 15)
+        val startDate = LocalDate.of(2005, 1, 1)
         val today = LocalDate.now()
         val latestSunday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
         var currentDate = latestSunday.minusDays(7)

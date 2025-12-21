@@ -8,11 +8,15 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import org.cinemind.common.entity.BaseEntity
 
 // Movie, Genre 매핑 테이블
 @Entity
-@Table(name="movie_genres")
+@Table(
+    name="movie_genres",
+    uniqueConstraints = [UniqueConstraint(name = "uk_movie_genre", columnNames = ["movie_id", "genre_id"])]
+)
 class MovieGenre (
 
     @ManyToOne(fetch = FetchType.LAZY)
